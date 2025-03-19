@@ -2,15 +2,13 @@ package com.example.chooserecipientxml.adapter
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.model.Contact
-import com.example.chooserecipientxml.utils.DiffCallback
 
-class ContactAdapter : ListAdapter<Contact, ContactAdapter.ContactViewHolder>(DiffCallback()) {
+class ContactAdapter : RecyclerView.Adapter<ContactAdapter.ContactViewHolder>() {
 
-    private val allContacts = mutableListOf<Contact>() // Stores all data for filtering
+    private val allContacts = mutableListOf<Contact>() // ✅ Store all contacts
 
     class ContactViewHolder(private val binding: ItemContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -18,7 +16,7 @@ class ContactAdapter : ListAdapter<Contact, ContactAdapter.ContactViewHolder>(Di
         fun bind(contact: Contact) {
             binding.contactName.text = contact.name
             binding.contactPhone.text = contact.phoneNumber
-            binding.contactSource.text = contact.source?.name ?: "Unknown" // ✅ Prevents null crashes
+            binding.contactSource.text = contact.source?.name ?: "Unknown"
         }
     }
 
@@ -28,35 +26,31 @@ class ContactAdapter : ListAdapter<Contact, ContactAdapter.ContactViewHolder>(Di
     }
 
     override fun onBindViewHolder(holder: ContactViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(allContacts[position])
     }
 
+    override fun getItemCount(): Int = allContacts.size
+
     /**
-     * Append new recipients (for pagination)
+     * ✅ Efficiently append new recipients while preventing duplicates.
      */
     fun addRecipients(newRecipients: List<Contact>) {
-        allContacts.clear()
-        allContacts.addAll(newRecipients)
-        submitList(allContacts.toList()) // ✅ Use submitList for efficient UI updates
-    }
+        val startPosition = allContacts.size
 
-    fun getAllContacts(): List<Contact> {
-        return allContacts.toList() // ✅ Needed to merge device + service contacts
+        val filteredRecipients = newRecipients.filter { newContact ->
+            allContacts.none { it.id == newContact.id } // ✅ Prevent duplicate entries
+        }
+
+        if (filteredRecipients.isNotEmpty()) {
+            allContacts.addAll(filteredRecipients) // ✅ Append only unique items
+            notifyItemRangeInserted(startPosition, filteredRecipients.size)
+        }
     }
-//    fun addRecipients(newRecipients: List<Contact>) {
-//        allContacts.addAll(newRecipients) // Store all contacts for filtering
-//        submitList(allContacts.toList()) // Trigger DiffUtil for smooth updates
-//    }
 
     /**
-     * Filter contacts based on the search query
+     * ✅ Get all contacts (useful for merging device & service contacts)
      */
-    fun filter(query: String) {
-        val filteredList = if (query.isEmpty()) {
-            allContacts
-        } else {
-            allContacts.filter { it.name.contains(query, ignoreCase = true) }
-        }
-        submitList(filteredList) // Updates UI efficiently
+    fun getAllContacts(): List<Contact> {
+        return allContacts.toList()
     }
 }

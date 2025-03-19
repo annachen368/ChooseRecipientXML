@@ -26,9 +26,9 @@ class RecipientViewModel : ViewModel() {
             val newRecipients = repository.fetchRecipients(currentStartIndex, batchSize)
 
             if (newRecipients.isNotEmpty()) {
-                allServiceContacts.addAll(newRecipients) // ✅ Append data
-                _recipients.postValue(allServiceContacts.toList()) // ✅ Update UI safely
-                currentStartIndex += batchSize
+                allServiceContacts.addAll(newRecipients) // ✅ Append new batch
+                _recipients.postValue(allServiceContacts.toList()) // ✅ Update UI
+                currentStartIndex += batchSize // ✅ Move start index to next batch
             }
         }
     }

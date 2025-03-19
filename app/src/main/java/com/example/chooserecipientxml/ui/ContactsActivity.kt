@@ -9,8 +9,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
-import com.example.chooserecipientxml.network.ApiService
-import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.utils.getDeviceContacts
 import com.example.chooserecipientxml.viewmodel.RecipientViewModel
 import kotlinx.coroutines.launch
@@ -19,9 +17,6 @@ class ContactsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityContactsBinding
     private val viewModel: RecipientViewModel by viewModels()
     private lateinit var adapter: ContactAdapter
-
-    // Initialize API service and repository
-    private val repository by lazy { ContactRepository(ApiService.create()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,34 +32,32 @@ class ContactsActivity : AppCompatActivity() {
         // ✅ Load device contacts first
         lifecycleScope.launch {
             val deviceContacts = getDeviceContacts(this@ContactsActivity)
-            adapter.addRecipients(deviceContacts) // ✅ Add device contacts immediately
+            adapter.addRecipients(deviceContacts) // ✅ Add device contacts first
         }
 
         // ✅ Observe service contacts (outside of `launch`)
         viewModel.recipients.observe(this) { serviceContacts ->
-            val mergedContacts = adapter.getAllContacts() + serviceContacts // ✅ Keep existing contacts
-            adapter.addRecipients(mergedContacts)
-            binding.progressBar.visibility = View.GONE
+            adapter.addRecipients(serviceContacts) // ✅ Append service contacts instead of replacing
+            binding.progressBar.visibility = android.view.View.GONE
         }
 
-        // ✅ Fetch service contacts (pagination)
+        // ✅ Load first batch of service contacts
         viewModel.loadMoreRecipients()
 
-        // ✅ Implement Search Filtering
-//        binding.searchView.setOnQueryTextListener(object : android.widget.SearchView.OnQueryTextListener {
-//            override fun onQueryTextSubmit(query: String?): Boolean = false
-//            override fun onQueryTextChange(newText: String?): Boolean {
-//                adapter.filter(newText ?: "")
-//                return true
-//            }
-//        })
+        // ✅ Implement Infinite Scroll
+        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
 
-//        lifecycleScope.launch {
-//            binding.progressBar.visibility = View.VISIBLE
-//            val serviceContacts = repository.fetchRecipients(0, 100)
-//            val deviceContacts = getDeviceContacts(this@ContactsActivity)
-//            adapter.submitList(serviceContacts + deviceContacts)
-//            binding.progressBar.visibility = View.GONE
-//        }
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition()
+                val totalItemCount = layoutManager.itemCount
+
+                // ✅ If we reached the last item, load more data
+                if (lastVisibleItem == totalItemCount - 1) {
+                    viewModel.loadMoreRecipients()
+                }
+            }
+        })
     }
 }
