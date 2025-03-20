@@ -5,11 +5,17 @@
     android:orientation="vertical">
 
     <!-- Search Bar -->
-    <androidx.appcompat.widget.SearchView
+    <SearchView
         android:id="@+id/searchView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:queryHint="Search Contacts" />
+        android:queryHint="Search Contacts"
+        android:layout_marginTop="100dp"
+        android:paddingTop="16dp"
+        android:background="@android:color/white"
+        android:iconifiedByDefault="false"
+        android:focusable="true"
+        android:focusableInTouchMode="true"/>
 
     <!-- Progress Bar -->
     <ProgressBar

@@ -1,7 +1,7 @@
 package com.example.chooserecipientxml.ui
 
 import android.os.Bundle
-import android.view.View
+import android.widget.SearchView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -21,7 +21,8 @@ class ContactsActivity : AppCompatActivity() {
     private var deviceStartIndex = 0
     private val batchSize = 50
     private var isLoading = false // ✅ Prevent duplicate requests
-    private var isDeviceLoading = false // ✅ Flag to load device contacts **after** service contacts are finished
+    private var isDeviceLoading =
+        false // ✅ Flag to load device contacts **after** service contacts are finished
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,6 +70,15 @@ class ContactsActivity : AppCompatActivity() {
 
                     isLoading = false
                 }
+            }
+        })
+
+        // ✅ Implement Search Filtering
+        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean = false
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                return true
             }
         })
     }
