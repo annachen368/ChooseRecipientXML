@@ -2,6 +2,7 @@ package com.example.chooserecipientxml.utils
 
 import android.content.Context
 import android.provider.ContactsContract
+import android.telephony.PhoneNumberUtils
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.model.ContactSource
 import java.util.UUID
@@ -25,6 +26,8 @@ fun getDeviceContacts(context: Context, startIndex: Int, batchSize: Int): List<C
         ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC LIMIT $batchSize OFFSET $startIndex"
     )
 
+    val contactMap = mutableMapOf<String, MutableSet<String>>() // ✅ Track unique numbers per contact
+
     cursor?.use {
         val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
         val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
@@ -33,11 +36,21 @@ fun getDeviceContacts(context: Context, startIndex: Int, batchSize: Int): List<C
             val name = it.getString(nameIndex)
             val number = it.getString(numberIndex)
 
-            contacts.add(Contact(UUID.randomUUID().toString(), name, number, ContactSource.DEVICE))
+            val normalizedNumber = normalizePhoneNumber(number) // ✅ Normalize number
+
+            if (contactMap[name] == null) {
+                contactMap[name] = mutableSetOf()
+            }
+
+            // ✅ Only add the contact if the number is unique for this person
+            if (contactMap[name]?.add(normalizedNumber) == true) {
+                contacts.add(Contact(UUID.randomUUID().toString(), name, normalizedNumber, ContactSource.DEVICE))
+            }
         }
     }
 
     // ✅ If real contacts are fewer than the requested batch, generate fake contacts
+    // These list will not be added to the list of real contacts and not sorted in ASC with the real contacts
     if (contacts.size < batchSize && totalFakeContactsGenerated < MAX_FAKE_CONTACTS) {
         val remainingFakeContacts = minOf(batchSize - contacts.size, MAX_FAKE_CONTACTS - totalFakeContactsGenerated)
 
@@ -48,6 +61,13 @@ fun getDeviceContacts(context: Context, startIndex: Int, batchSize: Int): List<C
     }
 
     return contacts
+}
+
+/**
+ * ✅ Normalize phone numbers to avoid duplicates with different formats.
+ */
+fun normalizePhoneNumber(phoneNumber: String): String {
+    return PhoneNumberUtils.normalizeNumber(phoneNumber).replace(Regex("[^0-9+]"), "")
 }
 
 /**
