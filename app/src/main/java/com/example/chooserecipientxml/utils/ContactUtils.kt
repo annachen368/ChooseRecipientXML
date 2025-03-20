@@ -51,14 +51,14 @@ fun getDeviceContacts(context: Context, startIndex: Int, batchSize: Int): List<C
 
     // ✅ If real contacts are fewer than the requested batch, generate fake contacts
     // These list will not be added to the list of real contacts and not sorted in ASC with the real contacts
-    if (contacts.size < batchSize && totalFakeContactsGenerated < MAX_FAKE_CONTACTS) {
-        val remainingFakeContacts = minOf(batchSize - contacts.size, MAX_FAKE_CONTACTS - totalFakeContactsGenerated)
-
-        if (remainingFakeContacts > 0) {
-            contacts.addAll(generateFakeContacts(totalFakeContactsGenerated, remainingFakeContacts))
-            totalFakeContactsGenerated += remainingFakeContacts // ✅ Update total fake count
-        }
-    }
+//    if (contacts.size < batchSize && totalFakeContactsGenerated < MAX_FAKE_CONTACTS) {
+//        val remainingFakeContacts = minOf(batchSize - contacts.size, MAX_FAKE_CONTACTS - totalFakeContactsGenerated)
+//
+//        if (remainingFakeContacts > 0) {
+//            contacts.addAll(generateFakeContacts(totalFakeContactsGenerated, remainingFakeContacts))
+//            totalFakeContactsGenerated += remainingFakeContacts // ✅ Update total fake count
+//        }
+//    }
 
     return contacts
 }

@@ -1,25 +1,37 @@
 package com.example.chooserecipientxml.adapter
 
+import android.content.Context
+import android.content.Intent
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.model.Contact
+import com.example.chooserecipientxml.ui.ContactDetailActivity
 import java.util.Locale
 
-class ContactAdapter : RecyclerView.Adapter<ContactAdapter.ContactViewHolder>() {
+class ContactAdapter(private val context: Context) : RecyclerView.Adapter<ContactAdapter.ContactViewHolder>() {
 
     private var allContacts = mutableListOf<Contact>() // ✅ Full dataset (pagination)
     private var filteredContacts = mutableListOf<Contact>() // ✅ Stores filtered contacts
     private var isSearching = false // ✅ Tracks search state
 
-    class ContactViewHolder(private val binding: ItemContactBinding) :
+    inner class ContactViewHolder(private val binding: ItemContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(contact: Contact) {
             binding.contactName.text = contact.name
             binding.contactPhone.text = contact.phoneNumber
             binding.contactSource.text = contact.source?.name ?: "Unknown"
+
+            // Set the click listener for the item
+            binding.root.setOnClickListener {
+                val intent = Intent(context, ContactDetailActivity::class.java).apply {
+                    putExtra("CONTACT", contact)
+                }
+                context.startActivity(intent)
+            }
         }
     }
 

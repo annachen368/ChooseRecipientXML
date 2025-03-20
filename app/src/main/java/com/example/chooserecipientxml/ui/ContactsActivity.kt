@@ -30,7 +30,7 @@ class ContactsActivity : AppCompatActivity() {
         binding = ActivityContactsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        adapter = ContactAdapter()
+        adapter = ContactAdapter(context = this)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
 
