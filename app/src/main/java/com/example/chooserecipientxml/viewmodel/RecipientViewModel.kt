@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 
 class RecipientViewModel : ViewModel() {
 
+    // TODO: Inject ApiService and ContactRepository
     private val apiService = ApiService.create()
     private val repository = ContactRepository(apiService)
 
@@ -19,17 +20,32 @@ class RecipientViewModel : ViewModel() {
 
     private var currentStartIndex = 0
     private val batchSize = 50
-    private val allServiceContacts = mutableListOf<Contact>() // ✅ Store all contacts
+    private val allServiceContacts = mutableListOf<Contact>() // ✅ Store all service contacts
+    private var hasMoreServiceContacts = true // ✅ Track if more service contacts exist
 
     fun loadMoreRecipients() {
+        if (!hasMoreServiceContacts) return // ✅ Stop requesting if all service contacts are loaded
+
         viewModelScope.launch {
             val newRecipients = repository.fetchRecipients(currentStartIndex, batchSize)
 
-            if (newRecipients.isNotEmpty()) {
-                allServiceContacts.addAll(newRecipients) // ✅ Append new batch
+            // ✅ Prevent duplicates before adding new data
+            val filteredRecipients = newRecipients.filter { newContact ->
+                allServiceContacts.none { it.id == newContact.id }
+            }
+
+            if (filteredRecipients.isNotEmpty()) {
+                allServiceContacts.addAll(filteredRecipients) // ✅ Append only unique items
                 _recipients.postValue(allServiceContacts.toList()) // ✅ Update UI
-                currentStartIndex += batchSize // ✅ Move start index to next batch
+                currentStartIndex += batchSize // ✅ Move start index forward
+            } else {
+                hasMoreServiceContacts = false // ✅ Stop further requests
+                _recipients.postValue(allServiceContacts.toList()) // ✅ Ensure UI updates
             }
         }
+    }
+
+    fun hasMoreServiceContacts(): Boolean {
+        return hasMoreServiceContacts
     }
 }

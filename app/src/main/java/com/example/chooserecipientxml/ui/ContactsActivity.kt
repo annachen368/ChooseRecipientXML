@@ -18,6 +18,11 @@ class ContactsActivity : AppCompatActivity() {
     private val viewModel: RecipientViewModel by viewModels()
     private lateinit var adapter: ContactAdapter
 
+    private var deviceStartIndex = 0
+    private val batchSize = 50
+    private var isLoading = false // ✅ Prevent duplicate requests
+    private var isDeviceLoading = false // ✅ Flag to load device contacts **after** service contacts are finished
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityContactsBinding.inflate(layoutInflater)
@@ -27,24 +32,24 @@ class ContactsActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
 
-        binding.progressBar.visibility = View.VISIBLE
+        binding.progressBar.visibility = android.view.View.VISIBLE
 
-        // ✅ Load device contacts first
-        lifecycleScope.launch {
-            val deviceContacts = getDeviceContacts(this@ContactsActivity)
-            adapter.addRecipients(deviceContacts) // ✅ Add device contacts first
-        }
-
-        // ✅ Observe service contacts (outside of `launch`)
-        viewModel.recipients.observe(this) { serviceContacts ->
-            adapter.addRecipients(serviceContacts) // ✅ Append service contacts instead of replacing
-            binding.progressBar.visibility = android.view.View.GONE
-        }
-
-        // ✅ Load first batch of service contacts
+        // ✅ Load first batch of service recipients
         viewModel.loadMoreRecipients()
 
-        // ✅ Implement Infinite Scroll
+        // ✅ Observe service recipients
+        viewModel.recipients.observe(this) { serviceContacts ->
+            adapter.addRecipients(serviceContacts) // ✅ Append service contacts
+            binding.progressBar.visibility = android.view.View.GONE
+
+            // ✅ If all service recipients are loaded, start loading device contacts
+            if (!isDeviceLoading && !viewModel.hasMoreServiceContacts()) {
+                isDeviceLoading = true
+                loadMoreDeviceContacts()
+            }
+        }
+
+        // ✅ Implement Infinite Scroll for Both Service & Device Contacts
         binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
@@ -53,11 +58,26 @@ class ContactsActivity : AppCompatActivity() {
                 val lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition()
                 val totalItemCount = layoutManager.itemCount
 
-                // ✅ If we reached the last item, load more data
-                if (lastVisibleItem == totalItemCount - 1) {
-                    viewModel.loadMoreRecipients()
+                if (!isLoading && lastVisibleItem == totalItemCount - 1) {
+                    isLoading = true // ✅ Prevent duplicate requests
+
+                    if (viewModel.hasMoreServiceContacts()) {
+                        viewModel.loadMoreRecipients()
+                    } else if (isDeviceLoading) {
+                        loadMoreDeviceContacts()
+                    }
+
+                    isLoading = false
                 }
             }
         })
+    }
+
+    private fun loadMoreDeviceContacts() {
+        lifecycleScope.launch {
+            val newDeviceContacts = getDeviceContacts(this@ContactsActivity, deviceStartIndex, batchSize)
+            adapter.addRecipients(newDeviceContacts) // ✅ Append device contacts
+            deviceStartIndex += batchSize // ✅ Move to next batch
+        }
     }
 }

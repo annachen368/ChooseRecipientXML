@@ -47,9 +47,6 @@ class ContactAdapter : RecyclerView.Adapter<ContactAdapter.ContactViewHolder>() 
         }
     }
 
-    /**
-     * ✅ Get all contacts (useful for merging device & service contacts)
-     */
     fun getAllContacts(): List<Contact> {
         return allContacts.toList()
     }
