@@ -62,7 +62,7 @@ fun generateFakeContacts(startIndex: Int, count: Int): List<Contact> {
             Contact(
                 id = UUID.randomUUID().toString(),
                 name = "Fake User $index",
-                phoneNumber = "+123456789${Random.nextInt(1000, 9999)}",
+                phoneNumber = "+847420${Random.nextInt(1000, 9999)}",
                 source = ContactSource.DEVICE
             )
         )

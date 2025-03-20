@@ -19,10 +19,11 @@ class ContactsActivity : AppCompatActivity() {
     private lateinit var adapter: ContactAdapter
 
     private var deviceStartIndex = 0
-    private val batchSize = 50
+    private val batchSize = 50 // ✅ Batch size for device contacts
     private var isLoading = false // ✅ Prevent duplicate requests
     private var isDeviceLoading =
         false // ✅ Flag to load device contacts **after** service contacts are finished
+    private var isSearching = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,14 +41,16 @@ class ContactsActivity : AppCompatActivity() {
 
         // ✅ Observe service recipients
         viewModel.recipients.observe(this) { serviceContacts ->
-            adapter.addRecipients(serviceContacts) // ✅ Append service contacts
-            binding.progressBar.visibility = android.view.View.GONE
+            if (!isSearching) {
+                adapter.addRecipients(serviceContacts) // ✅ Append service contacts
 
-            // ✅ If all service recipients are loaded, start loading device contacts
-            if (!isDeviceLoading && !viewModel.hasMoreServiceContacts()) {
-                isDeviceLoading = true
-                loadMoreDeviceContacts()
+                // ✅ If all service recipients are loaded, start loading device contacts
+                if (!isDeviceLoading && !viewModel.hasMoreServiceContacts()) {
+                    isDeviceLoading = true
+                    loadMoreDeviceContacts()
+                }
             }
+            binding.progressBar.visibility = android.view.View.GONE
         }
 
         // ✅ Implement Infinite Scroll for Both Service & Device Contacts
@@ -59,7 +62,7 @@ class ContactsActivity : AppCompatActivity() {
                 val lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition()
                 val totalItemCount = layoutManager.itemCount
 
-                if (!isLoading && lastVisibleItem == totalItemCount - 1) {
+                if (!isSearching && !isLoading && lastVisibleItem == totalItemCount - 1) {
                     isLoading = true // ✅ Prevent duplicate requests
 
                     if (viewModel.hasMoreServiceContacts()) {
@@ -78,6 +81,8 @@ class ContactsActivity : AppCompatActivity() {
             override fun onQueryTextSubmit(query: String?): Boolean = false
 
             override fun onQueryTextChange(newText: String?): Boolean {
+                isSearching = !newText.isNullOrEmpty()
+                adapter.filter(newText ?: "") // ✅ Update list dynamically
                 return true
             }
         })

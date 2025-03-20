@@ -5,10 +5,13 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.model.Contact
+import java.util.Locale
 
 class ContactAdapter : RecyclerView.Adapter<ContactAdapter.ContactViewHolder>() {
 
-    private val allContacts = mutableListOf<Contact>() // ✅ Store all contacts
+    private var allContacts = mutableListOf<Contact>() // ✅ Full dataset (pagination)
+    private var filteredContacts = mutableListOf<Contact>() // ✅ Stores filtered contacts
+    private var isSearching = false // ✅ Tracks search state
 
     class ContactViewHolder(private val binding: ItemContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -26,28 +29,46 @@ class ContactAdapter : RecyclerView.Adapter<ContactAdapter.ContactViewHolder>() 
     }
 
     override fun onBindViewHolder(holder: ContactViewHolder, position: Int) {
-        holder.bind(allContacts[position])
+        holder.bind(getCurrentList()[position]) // ✅ Use filtered list when searching
     }
 
-    override fun getItemCount(): Int = allContacts.size
+    override fun getItemCount(): Int = getCurrentList().size
+
+    private fun getCurrentList(): List<Contact> {
+        return if (isSearching) filteredContacts else allContacts // ✅ Show search results if filtering
+    }
 
     /**
-     * ✅ Efficiently append new recipients while preventing duplicates.
+     * ✅ Adds new recipients from pagination.
      */
     fun addRecipients(newRecipients: List<Contact>) {
-        val startPosition = allContacts.size
+        if (!isSearching) { // ✅ Avoid modifying contacts if filtering is active
+            val uniqueRecipients = newRecipients.filter { newContact ->
+                allContacts.none { it.id == newContact.id } // ✅ Prevents duplicates
+            }
 
-        val filteredRecipients = newRecipients.filter { newContact ->
-            allContacts.none { it.id == newContact.id } // ✅ Prevent duplicate entries
-        }
-
-        if (filteredRecipients.isNotEmpty()) {
-            allContacts.addAll(filteredRecipients) // ✅ Append only unique items
-            notifyItemRangeInserted(startPosition, filteredRecipients.size)
+            allContacts.addAll(uniqueRecipients) // ✅ Append only unique contacts
+            notifyDataSetChanged()
         }
     }
 
-    fun getAllContacts(): List<Contact> {
-        return allContacts.toList()
+    /**
+     * ✅ Filters contacts when user types in search.
+     */
+    fun filter(query: String) {
+        val lowerCaseQuery = query.lowercase(Locale.getDefault())
+
+        isSearching = lowerCaseQuery.isNotEmpty()
+
+        filteredContacts = if (isSearching) {
+            allContacts.filter { contact ->
+                contact.name.lowercase(Locale.getDefault()).contains(lowerCaseQuery) ||
+                        contact.phoneNumber.lowercase(Locale.getDefault()).contains(lowerCaseQuery)
+            }.toMutableList()
+        } else {
+            mutableListOf() // ✅ Clear filtered list when search is empty
+        }
+
+        notifyDataSetChanged()
     }
 }
