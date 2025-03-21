@@ -42,7 +42,7 @@ class ContactsActivity : AppCompatActivity() {
         // ✅ Observe service recipients
         viewModel.recipients.observe(this) { serviceContacts ->
             if (!isSearching) {
-                adapter.addRecipients(serviceContacts) // ✅ Append service contacts
+                adapter.addServiceContacts(serviceContacts) // ✅ Append service contacts
 
                 // ✅ If all service recipients are loaded, start loading device contacts
                 if (!isDeviceLoading) {
@@ -89,7 +89,7 @@ class ContactsActivity : AppCompatActivity() {
     private fun loadDeviceContacts() {
         lifecycleScope.launch {
             val newDeviceContacts = getDeviceContacts(this@ContactsActivity, deviceStartIndex, batchSize)
-            adapter.addRecipients(newDeviceContacts) // ✅ Append device contacts
+            adapter.addDeviceContacts(newDeviceContacts) // ✅ Append device contacts
             deviceStartIndex += batchSize // ✅ Move to next batch
         }
     }

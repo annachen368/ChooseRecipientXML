@@ -3,17 +3,18 @@ package com.example.chooserecipientxml.adapter
 import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.databinding.ItemContactBinding
+import com.example.chooserecipientxml.databinding.ItemHeaderBinding
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.ui.ContactDetailActivity
 import java.util.Locale
 
-class ContactAdapter(private val context: Context) : RecyclerView.Adapter<ContactAdapter.ContactViewHolder>() {
+class ContactAdapter(private val context: Context) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private var allContacts = mutableListOf<Contact>() // ✅ Full dataset (pagination)
+    private var serviceContacts = mutableListOf<Contact>()
+    private var deviceContacts = mutableListOf<Contact>() // pagination
     private var filteredContacts = mutableListOf<Contact>() // ✅ Stores filtered contacts
     private var isSearching = false // ✅ Tracks search state
 
@@ -35,31 +36,92 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Contac
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ContactViewHolder {
-        val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ContactViewHolder(binding)
+//    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ContactViewHolder {
+//        val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+//        return ContactViewHolder(binding)
+//    }
+
+//    override fun onBindViewHolder(holder: ContactViewHolder, position: Int) {
+//        holder.bind(getCurrentList()[position]) // ✅ Use filtered list when searching
+//    }
+    companion object {
+        private const val VIEW_TYPE_HEADER = 0
+        private const val VIEW_TYPE_CONTACT = 1
     }
 
-    override fun onBindViewHolder(holder: ContactViewHolder, position: Int) {
-        holder.bind(getCurrentList()[position]) // ✅ Use filtered list when searching
+    inner class HeaderViewHolder(private val binding: ItemHeaderBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(title: String) {
+            binding.headerTitle.text = title
+        }
     }
 
-    override fun getItemCount(): Int = getCurrentList().size
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == VIEW_TYPE_HEADER) {
+            val binding = ItemHeaderBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            HeaderViewHolder(binding)
+        } else {
+            val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            ContactViewHolder(binding)
+        }
+    }
 
-    private fun getCurrentList(): List<Contact> {
-        return if (isSearching) filteredContacts else allContacts // ✅ Show search results if filtering
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val currentList = getCurrentListWithHeaders()
+        val item = currentList[position]
+
+        if (holder is ContactViewHolder && item != null) {
+            holder.bind(item)
+        } else if (holder is HeaderViewHolder && item == null) {
+            val title = if (position == 0) "Service Contacts" else "Device Contacts"
+            holder.bind(title)
+        }
+    }
+
+    override fun getItemCount(): Int = getCurrentListWithHeaders().size
+
+    override fun getItemViewType(position: Int): Int {
+        val currentList = getCurrentListWithHeaders()
+        return if (currentList[position] == null) VIEW_TYPE_HEADER else VIEW_TYPE_CONTACT
+    }
+
+    private fun getCurrentListWithHeaders(): List<Contact?> {
+        return if (isSearching) {
+            filteredContacts
+        } else {
+            val list = mutableListOf<Contact?>()
+            if (serviceContacts.isNotEmpty()) {
+                list.add(null) // Header placeholder
+                list.addAll(serviceContacts)
+            }
+            if (deviceContacts.isNotEmpty()) {
+                list.add(null) // Another header
+                list.addAll(deviceContacts)
+            }
+            list
+        }
     }
 
     /**
-     * ✅ Adds new recipients from pagination.
+     * ✅ Adds new contacts from service response.
      */
-    fun addRecipients(newRecipients: List<Contact>) {
+    fun addServiceContacts(newRecipients: List<Contact>) {
         if (!isSearching) { // ✅ Avoid modifying contacts if filtering is active
             val uniqueRecipients = newRecipients.filter { newContact ->
-                allContacts.none { it.id == newContact.id } // ✅ Prevents duplicates
+                serviceContacts.none { it.id == newContact.id } // ✅ Prevents duplicates
             }
 
-            allContacts.addAll(uniqueRecipients) // ✅ Append only unique contacts
+            serviceContacts.addAll(uniqueRecipients) // ✅ Append only unique contacts
+            notifyDataSetChanged()
+        }
+    }
+
+    /**
+     * ✅ Adds new contacts from device contact pagination.
+     */
+    fun addDeviceContacts(newDeviceContacts: List<Contact>) {
+        if (!isSearching) {
+            deviceContacts.addAll(newDeviceContacts)
             notifyDataSetChanged()
         }
     }
@@ -73,7 +135,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Contac
         isSearching = lowerCaseQuery.isNotEmpty()
 
         filteredContacts = if (isSearching) {
-            allContacts.filter { contact ->
+            (serviceContacts + deviceContacts).filter { contact ->
                 contact.name.lowercase(Locale.getDefault()).contains(lowerCaseQuery) ||
                         contact.phoneNumber.lowercase(Locale.getDefault()).contains(lowerCaseQuery)
             }.toMutableList()
