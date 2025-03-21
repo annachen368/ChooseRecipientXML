@@ -36,8 +36,8 @@ class ContactsActivity : AppCompatActivity() {
 
         binding.progressBar.visibility = android.view.View.VISIBLE
 
-        // ✅ Load first batch of service recipients
-        viewModel.loadMoreRecipients()
+        // ✅ Load all service contacts
+        viewModel.loadServiceContacts()
 
         // ✅ Observe service recipients
         viewModel.recipients.observe(this) { serviceContacts ->
@@ -45,15 +45,15 @@ class ContactsActivity : AppCompatActivity() {
                 adapter.addRecipients(serviceContacts) // ✅ Append service contacts
 
                 // ✅ If all service recipients are loaded, start loading device contacts
-                if (!isDeviceLoading && !viewModel.hasMoreServiceContacts()) {
+                if (!isDeviceLoading) {
                     isDeviceLoading = true
-                    loadMoreDeviceContacts()
+                    loadDeviceContacts()
                 }
             }
             binding.progressBar.visibility = android.view.View.GONE
         }
 
-        // ✅ Implement Infinite Scroll for Both Service & Device Contacts
+        // ✅ Implement Infinite Scroll for Device Contacts
         binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
@@ -65,10 +65,8 @@ class ContactsActivity : AppCompatActivity() {
                 if (!isSearching && !isLoading && lastVisibleItem == totalItemCount - 1) {
                     isLoading = true // ✅ Prevent duplicate requests
 
-                    if (viewModel.hasMoreServiceContacts()) {
-                        viewModel.loadMoreRecipients()
-                    } else if (isDeviceLoading) {
-                        loadMoreDeviceContacts()
+                    if (isDeviceLoading) {
+                        loadDeviceContacts()
                     }
 
                     isLoading = false
@@ -88,7 +86,7 @@ class ContactsActivity : AppCompatActivity() {
         })
     }
 
-    private fun loadMoreDeviceContacts() {
+    private fun loadDeviceContacts() {
         lifecycleScope.launch {
             val newDeviceContacts = getDeviceContacts(this@ContactsActivity, deviceStartIndex, batchSize)
             adapter.addRecipients(newDeviceContacts) // ✅ Append device contacts

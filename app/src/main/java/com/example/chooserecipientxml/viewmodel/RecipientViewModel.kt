@@ -23,11 +23,17 @@ class RecipientViewModel : ViewModel() {
     private val allServiceContacts = mutableListOf<Contact>() // ✅ Store all service contacts
     private var hasMoreServiceContacts = true // ✅ Track if more service contacts exist
 
-    fun loadMoreRecipients() {
+    fun loadServiceContacts() {
         if (!hasMoreServiceContacts) return // ✅ Stop requesting if all service contacts are loaded
 
         viewModelScope.launch {
-            _recipients.postValue(repository.fetchRecipients())
+            val serviceContacts = repository.fetchRecipients()
+
+            if (serviceContacts.isNotEmpty()) {
+                val updatedList = (_recipients.value ?: emptyList()).toMutableList()
+                updatedList.addAll(serviceContacts)
+                _recipients.postValue(updatedList)
+            }
 
 //            if (newRecipients.isNotEmpty()) {
 //                val updatedList = (_recipients.value ?: emptyList()).toMutableList()
