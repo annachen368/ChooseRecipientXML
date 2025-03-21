@@ -5,13 +5,17 @@ import com.example.chooserecipientxml.model.ContactSource
 import com.example.chooserecipientxml.network.ApiService
 
 class ContactRepository(private val apiService: ApiService) {
-    suspend fun fetchRecipients(start: Int, limit: Int): List<Contact> {
+    suspend fun fetchRecipients(): List<Contact> {
         return try {
-            val response = apiService.getRecipients(start, limit)
+            val response = apiService.getCustomerProfile()
             if (response.isSuccessful) {
-                response.body()?.map { contact ->
-                    contact.source = ContactSource.SERVICE // ✅ Assign SERVICE source in Android
-                    contact
+                response.body()?.recipients?.map { recipient ->
+                    Contact(
+                        id = recipient.recipientId,
+                        name = recipient.displayName,
+                        phoneNumber = recipient.token,
+                        source = ContactSource.SERVICE
+                    )
                 } ?: emptyList()
             } else {
                 emptyList() // Handle API errors gracefully

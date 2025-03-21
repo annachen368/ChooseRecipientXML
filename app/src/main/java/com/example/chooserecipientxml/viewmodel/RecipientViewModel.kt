@@ -27,20 +27,20 @@ class RecipientViewModel : ViewModel() {
         if (!hasMoreServiceContacts) return // ✅ Stop requesting if all service contacts are loaded
 
         viewModelScope.launch {
-            val newRecipients = repository.fetchRecipients(currentStartIndex, batchSize)
+            _recipients.postValue(repository.fetchRecipients())
 
-            if (newRecipients.isNotEmpty()) {
-                val updatedList = (_recipients.value ?: emptyList()).toMutableList()
-                updatedList.addAll(newRecipients)
-                _recipients.postValue(updatedList)
-
-                currentStartIndex += batchSize
-            } else {
-                hasMoreServiceContacts = false
-
-                // ✅ Force LiveData update so `observe` is triggered
-                _recipients.postValue(_recipients.value) // ✅ Even though data is the same, this triggers observers
-            }
+//            if (newRecipients.isNotEmpty()) {
+//                val updatedList = (_recipients.value ?: emptyList()).toMutableList()
+//                updatedList.addAll(newRecipients)
+//                _recipients.postValue(updatedList)
+//
+//                currentStartIndex += batchSize
+//            } else {
+//                hasMoreServiceContacts = false
+//
+//                // ✅ Force LiveData update so `observe` is triggered
+//                _recipients.postValue(_recipients.value) // ✅ Even though data is the same, this triggers observers
+//            }
         }
     }
 
