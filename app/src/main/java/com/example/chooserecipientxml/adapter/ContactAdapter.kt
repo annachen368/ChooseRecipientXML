@@ -5,6 +5,7 @@ import android.content.Intent
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.example.chooserecipientxml.R
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.databinding.ItemHeaderBinding
 import com.example.chooserecipientxml.model.Contact
@@ -19,6 +20,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
     private var activatedDeviceContacts = mutableListOf<Contact>() // pagination
     private var filteredContacts = mutableListOf<Contact>() // ✅ Stores filtered contacts
     private var isSearching = false // ✅ Tracks search state
+    private var showLoadingFooter = false
 
     inner class ContactViewHolder(private val binding: ItemContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -55,6 +57,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
     companion object {
         private const val VIEW_TYPE_HEADER = 0
         private const val VIEW_TYPE_CONTACT = 1
+        private const val VIEW_TYPE_LOADING = 2
     }
 
     inner class HeaderViewHolder(private val binding: ItemHeaderBinding) :
@@ -65,17 +68,30 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        return if (viewType == VIEW_TYPE_HEADER) {
-            val binding = ItemHeaderBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            HeaderViewHolder(binding)
-        } else {
-            val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            ContactViewHolder(binding)
+        return when (viewType) {
+            VIEW_TYPE_HEADER -> {
+                val binding = ItemHeaderBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+                HeaderViewHolder(binding)
+            }
+            VIEW_TYPE_LOADING -> {
+                val view = LayoutInflater.from(parent.context).inflate(R.layout.item_loading_footer, parent, false)
+                object : RecyclerView.ViewHolder(view) {}
+            }
+            else -> {
+                val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+                ContactViewHolder(binding)
+            }
         }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val currentList = getCurrentListWithHeaders()
+
+        if (showLoadingFooter && position == currentList.size) {
+            // This is the footer view. No binding needed.
+            return
+        }
+
         val item = currentList[position]
 
         if (holder is ContactViewHolder && item != null) {
@@ -92,11 +108,21 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         }
     }
 
-    override fun getItemCount(): Int = getCurrentListWithHeaders().size
+    override fun getItemCount(): Int {
+        var count = getCurrentListWithHeaders().size
+        if (showLoadingFooter) count += 1
+        return count
+    }
 
     override fun getItemViewType(position: Int): Int {
         val currentList = getCurrentListWithHeaders()
-        return if (currentList[position] == null) VIEW_TYPE_HEADER else VIEW_TYPE_CONTACT
+        return when {
+            position < currentList.size -> {
+                if (currentList[position] == null) VIEW_TYPE_HEADER else VIEW_TYPE_CONTACT
+            }
+            showLoadingFooter && position == currentList.size -> VIEW_TYPE_LOADING
+            else -> VIEW_TYPE_CONTACT
+        }
     }
 
     private fun getCurrentListWithHeaders(): List<Contact?> {
@@ -169,5 +195,16 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         }
 
         notifyDataSetChanged()
+    }
+
+    fun setLoadingFooterVisible(visible: Boolean) {
+        if (showLoadingFooter != visible) {
+            showLoadingFooter = visible
+            if (visible) {
+                notifyItemInserted(itemCount) // last item
+            } else {
+                notifyItemRemoved(itemCount) // last item
+            }
+        }
     }
 }

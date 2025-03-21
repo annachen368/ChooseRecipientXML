@@ -89,6 +89,7 @@ class ContactsActivity : AppCompatActivity() {
         // Even though you're using lifecycleScope.launch, it's still running on the main thread
         // by default, which can block UI rendering.
         lifecycleScope.launch {
+            adapter.setLoadingFooterVisible(true) // ✅ Show footer
             isLoading = true // ✅ Prevent duplicate requests
             val newDeviceContacts = withContext(Dispatchers.IO) { // Run Heavy Work on Dispatchers.IO
                 getDeviceContacts(this@ContactsActivity, deviceStartIndex, batchSize)
@@ -98,6 +99,7 @@ class ContactsActivity : AppCompatActivity() {
             adapter.addActivatedDeviceContacts(newDeviceContacts.filter { it.status == "ACTIVE" })
             deviceStartIndex += batchSize // ✅ Move to next batch
             isLoading = false // ✅ set after done loading
+            adapter.setLoadingFooterVisible(false) // ✅ Hide footer
         }
     }
 }
