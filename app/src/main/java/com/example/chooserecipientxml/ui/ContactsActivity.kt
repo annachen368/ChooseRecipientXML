@@ -11,7 +11,9 @@ import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
 import com.example.chooserecipientxml.utils.getDeviceContacts
 import com.example.chooserecipientxml.viewmodel.RecipientViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ContactsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityContactsBinding
@@ -59,17 +61,14 @@ class ContactsActivity : AppCompatActivity() {
                 super.onScrolled(recyclerView, dx, dy)
 
                 val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                val lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition()
+                val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
                 val totalItemCount = layoutManager.itemCount
 
-                if (!isSearching && !isLoading && lastVisibleItem == totalItemCount - 1) {
-                    isLoading = true // ✅ Prevent duplicate requests
-
+                val visibleThreshold = 10
+                if (!isSearching && !isLoading && lastVisibleItem >= totalItemCount - visibleThreshold) {
                     if (isDeviceLoading) {
                         loadDeviceContacts()
                     }
-
-                    isLoading = false
                 }
             }
         })
@@ -87,10 +86,18 @@ class ContactsActivity : AppCompatActivity() {
     }
 
     private fun loadDeviceContacts() {
+        // Even though you're using lifecycleScope.launch, it's still running on the main thread
+        // by default, which can block UI rendering.
         lifecycleScope.launch {
-            val newDeviceContacts = getDeviceContacts(this@ContactsActivity, deviceStartIndex, batchSize)
+            isLoading = true // ✅ Prevent duplicate requests
+            val newDeviceContacts = withContext(Dispatchers.IO) { // Run Heavy Work on Dispatchers.IO
+                getDeviceContacts(this@ContactsActivity, deviceStartIndex, batchSize)
+            }
+
             adapter.addDeviceContacts(newDeviceContacts) // ✅ Append device contacts
+            adapter.addActivatedDeviceContacts(newDeviceContacts.filter { it.status == "ACTIVE" })
             deviceStartIndex += batchSize // ✅ Move to next batch
+            isLoading = false // ✅ set after done loading
         }
     }
 }

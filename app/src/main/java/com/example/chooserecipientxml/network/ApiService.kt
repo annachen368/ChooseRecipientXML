@@ -1,14 +1,23 @@
 package com.example.chooserecipientxml.network
 
+import com.example.chooserecipientxml.model.ContactStatusRequest
+import com.example.chooserecipientxml.model.ContactStatusResponse
 import com.example.chooserecipientxml.model.CustomerProfileResponse
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 
 interface ApiService {
     @GET("/api/customer-profile")
     suspend fun getCustomerProfile(): Response<CustomerProfileResponse>
+
+    @POST("/api/contact/status")
+    suspend fun getContactStatus(
+        @Body request: ContactStatusRequest
+    ): Response<ContactStatusResponse>
 
     companion object {
         //        private const val BASE_URL = "http://10.0.2.2:8080" // Emulator localhost

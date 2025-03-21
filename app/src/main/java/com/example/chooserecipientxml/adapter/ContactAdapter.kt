@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.databinding.ItemHeaderBinding
 import com.example.chooserecipientxml.model.Contact
+import com.example.chooserecipientxml.model.ContactSource
 import com.example.chooserecipientxml.ui.ContactDetailActivity
 import java.util.Locale
 
@@ -15,6 +16,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
 
     private var serviceContacts = mutableListOf<Contact>()
     private var deviceContacts = mutableListOf<Contact>() // pagination
+    private var activatedDeviceContacts = mutableListOf<Contact>() // pagination
     private var filteredContacts = mutableListOf<Contact>() // ✅ Stores filtered contacts
     private var isSearching = false // ✅ Tracks search state
 
@@ -24,6 +26,12 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         fun bind(contact: Contact) {
             binding.contactName.text = contact.name
             binding.contactPhone.text = contact.phoneNumber
+            if (contact.source == ContactSource.SERVICE) {
+                binding.contactStatus.text = "ACTIVE"
+            } else {
+                binding.contactStatus.text = contact.status ?: "Unknown"
+            }
+
             binding.contactSource.text = contact.source?.name ?: "Unknown"
 
             // Set the click listener for the item
@@ -73,7 +81,13 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         if (holder is ContactViewHolder && item != null) {
             holder.bind(item)
         } else if (holder is HeaderViewHolder && item == null) {
-            val title = if (position == 0) "Service Contacts" else "Device Contacts"
+            val title = if (position == 0) {
+                "Service Contacts"
+            } else if (position == 1) {
+                "Device Contacts"
+            } else {
+                "ACTIVATED Device Contacts"
+            }
             holder.bind(title)
         }
     }
@@ -94,9 +108,13 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
                 list.add(null) // Header placeholder
                 list.addAll(serviceContacts)
             }
-            if (deviceContacts.isNotEmpty()) {
+//            if (deviceContacts.isNotEmpty()) {
+//                list.add(null) // Another header
+//                list.addAll(deviceContacts)
+//            }
+            if (activatedDeviceContacts.isNotEmpty()) {
                 list.add(null) // Another header
-                list.addAll(deviceContacts)
+                list.addAll(activatedDeviceContacts)
             }
             list
         }
@@ -122,6 +140,13 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
     fun addDeviceContacts(newDeviceContacts: List<Contact>) {
         if (!isSearching) {
             deviceContacts.addAll(newDeviceContacts)
+            notifyDataSetChanged()
+        }
+    }
+
+    fun addActivatedDeviceContacts(newDeviceContacts: List<Contact>) {
+        if (!isSearching) {
+            activatedDeviceContacts.addAll(newDeviceContacts)
             notifyDataSetChanged()
         }
     }

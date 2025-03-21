@@ -19,6 +19,14 @@
         android:textSize="14sp"/>
 
     <TextView
+        android:id="@+id/contactStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#673AB7"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
         android:id="@+id/contactSource"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
