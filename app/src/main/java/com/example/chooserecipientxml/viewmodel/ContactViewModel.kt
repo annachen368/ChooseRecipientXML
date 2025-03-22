@@ -3,17 +3,17 @@ package com.example.chooserecipientxml.viewmodel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.chooserecipientxml.model.Contact
-import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
 import kotlinx.coroutines.launch
 
-class RecipientViewModel : ViewModel() {
+class ContactViewModel(val repository: ContactRepository) : ViewModel() {
 
     // TODO: Inject ApiService and ContactRepository
-    private val apiService = ApiService.create()
-    private val repository = ContactRepository(apiService)
+//    private val apiService = ApiService.create()
+//    private val repository = ContactRepository(apiService)
 
     private val _recipients = MutableLiveData<List<Contact>>()
     val recipients: LiveData<List<Contact>> get() = _recipients
@@ -49,8 +49,13 @@ class RecipientViewModel : ViewModel() {
 //            }
         }
     }
+}
 
-    fun hasMoreServiceContacts(): Boolean {
-        return hasMoreServiceContacts
+class ContactViewModelFactory(private val repository: ContactRepository) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(ContactViewModel::class.java)) {
+            return ContactViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

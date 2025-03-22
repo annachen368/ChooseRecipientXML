@@ -2,22 +2,25 @@ package com.example.chooserecipientxml.ui
 
 import android.os.Bundle
 import android.widget.SearchView
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
+import com.example.chooserecipientxml.network.ApiService
+import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.utils.getDeviceContacts
-import com.example.chooserecipientxml.viewmodel.RecipientViewModel
+import com.example.chooserecipientxml.viewmodel.ContactViewModel
+import com.example.chooserecipientxml.viewmodel.ContactViewModelFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class ContactsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityContactsBinding
-    private val viewModel: RecipientViewModel by viewModels()
+    private lateinit var viewModel: ContactViewModel
     private lateinit var adapter: ContactAdapter
 
     private var deviceStartIndex = 0
@@ -31,6 +34,12 @@ class ContactsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityContactsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        val apiService = ApiService.create()
+        val repository = ContactRepository(apiService)
+        val factory = ContactViewModelFactory(repository)
+
+        viewModel = ViewModelProvider(this, factory)[ContactViewModel::class.java]
 
         adapter = ContactAdapter(context = this)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
