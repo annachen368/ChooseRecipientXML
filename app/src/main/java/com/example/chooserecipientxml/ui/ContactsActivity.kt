@@ -1,5 +1,6 @@
 package com.example.chooserecipientxml.ui
 
+import android.animation.ValueAnimator
 import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
@@ -23,6 +24,8 @@ class ContactsActivity : AppCompatActivity() {
     private lateinit var adapter: ContactAdapter
     private var isSearching = false
     private var hasMoreContacts: Boolean = true
+    private var isHeaderCollapsed = false
+    private var originalHeaderHeight = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -157,6 +160,45 @@ class ContactsActivity : AppCompatActivity() {
                 return true
             }
         })
+
+        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val firstVisible = layoutManager.findFirstVisibleItemPosition()
+
+                // 🟢 When scrolling stops, check if we're at the top
+                if (newState == RecyclerView.SCROLL_STATE_IDLE && firstVisible == 0) {
+                    showHeader()
+                }
+            }
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+
+                if (dy > 10) {
+                    hideHeader()
+                }
+            }
+        })
+
+    }
+    private var isHeaderHidden = false
+
+    private fun hideHeader() {
+        if (!isHeaderHidden) {
+            binding.headerGroup.visibility = View.GONE
+            isHeaderHidden = true
+        }
+    }
+
+    private fun showHeader() {
+        if (isHeaderHidden) {
+            binding.headerGroup.visibility = View.VISIBLE
+            isHeaderHidden = false
+        }
     }
 
     private var isLoading = false
