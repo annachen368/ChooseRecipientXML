@@ -22,6 +22,7 @@ class ContactsActivity : AppCompatActivity() {
     private lateinit var viewModel: ContactViewModel
     private lateinit var adapter: ContactAdapter
     private var isSearching = false
+    private var hasMoreContacts: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +65,11 @@ class ContactsActivity : AppCompatActivity() {
             if (!isSearching) {
                 adapter.addDeviceContacts(contacts) // ✅ Append service contacts
                 isLoading = false
+
+                // No more contacts to load
+                if (contacts.isEmpty()) {
+                    hasMoreContacts = false
+                }
 
                 // Slight delay before checking scroll state (to give layout time to update)
 //              // ✅ Important: Check again in case list is still too short to scroll
@@ -194,6 +200,11 @@ class ContactsActivity : AppCompatActivity() {
         return isVisible && visibleRect.height() >= itemView.height / 2
     }
 
+    /**
+     * It only runs a simple check: finding a view, measuring visibility.
+     * No heavy computation or drawing.
+     * It's executed on the main thread, but it’s light enough to not block rendering if implemented correctly.
+     */
     private val autoLoadRunnable = object : Runnable {
         override fun run() {
             if (!isLoading && isLastItemVisible()) {
@@ -201,7 +212,9 @@ class ContactsActivity : AppCompatActivity() {
                 loadMoreContacts()
             }
             // Keep checking every 500ms
-            binding.recyclerView.postDelayed(this, 500)
+            if (hasMoreContacts) {
+                binding.recyclerView.postDelayed(this, 500)
+            }
         }
     }
 
@@ -209,4 +222,8 @@ class ContactsActivity : AppCompatActivity() {
         super.onDestroy()
         binding.recyclerView.removeCallbacks(autoLoadRunnable)
     }
+
+    /**
+     * Use Android Profiler > CPU > Main Thread to see when frames are dropped or long tasks occur.
+     */
 }
