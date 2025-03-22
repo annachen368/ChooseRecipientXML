@@ -17,6 +17,7 @@ class ContactRepository(private val apiService: ApiService) {
                         id = recipient.recipientId,
                         name = recipient.displayName,
                         phoneNumber = recipient.token,
+                        level = recipient.displayIndicatorList?.firstOrNull()?.level,
                         source = ContactSource.SERVICE
                     )
                 } ?: emptyList()

@@ -1,5 +1,7 @@
 package com.example.chooserecipientxml.viewmodel
 
+import android.content.Context
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -7,51 +9,56 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.repository.ContactRepository
+import com.example.chooserecipientxml.utils.getDeviceContacts
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class ContactViewModel(val repository: ContactRepository) : ViewModel() {
+class ContactViewModel(private val repository: ContactRepository) : ViewModel() {
 
-    // TODO: Inject ApiService and ContactRepository
-//    private val apiService = ApiService.create()
-//    private val repository = ContactRepository(apiService)
+    // Service recipient but filter by level has value
+    private val _serverRecentContacts = MutableLiveData<List<Contact>>()
+    val serverRecentContacts: LiveData<List<Contact>> get() = _serverRecentContacts
 
-    private val _recipients = MutableLiveData<List<Contact>>()
-    val recipients: LiveData<List<Contact>> get() = _recipients
+    // Service recipients but filter by not having level
+    private val _serverMyContacts = MutableLiveData<List<Contact>>()
+    val serverMyContacts: LiveData<List<Contact>> get() = _serverMyContacts
 
-    private var currentStartIndex = 0
-    private val batchSize = 50 // ✅ Batch size for service recipients pagination
-    private val allServiceContacts = mutableListOf<Contact>() // ✅ Store all service contacts
-    private var hasMoreServiceContacts = true // ✅ Track if more service contacts exist
+    private val _deviceContacts = MutableLiveData<List<Contact>>()
+    val deviceContacts: LiveData<List<Contact>> get() = _deviceContacts
+
+    private val _deviceActiveContacts = MutableLiveData<List<Contact>>()
+    val deviceActiveContacts: LiveData<List<Contact>> get() = _deviceActiveContacts
+
+    private val _isDeviceContactsLoaded = MutableLiveData<Boolean>()
+    val isDeviceContactsLoaded: LiveData<Boolean> get() = _isDeviceContactsLoaded
 
     fun loadServiceContacts() {
-        if (!hasMoreServiceContacts) return // ✅ Stop requesting if all service contacts are loaded
-
-        viewModelScope.launch {
-            val serviceContacts = repository.fetchRecipients()
-
-            if (serviceContacts.isNotEmpty()) {
-                val updatedList = (_recipients.value ?: emptyList()).toMutableList()
-                updatedList.addAll(serviceContacts)
-                _recipients.postValue(updatedList)
+        viewModelScope.launch(Dispatchers.IO) {
+            Log.d("ThreadCheck", "loadServiceContacts ${Thread.currentThread().name}")
+            val newRecipients = repository.fetchRecipients()
+            if (newRecipients.isNotEmpty()) {
+                _serverRecentContacts.postValue(newRecipients.filter { it.level != null })
+                _serverMyContacts.postValue(newRecipients.filter { it.level == null })
             }
+        }
+    }
 
-//            if (newRecipients.isNotEmpty()) {
-//                val updatedList = (_recipients.value ?: emptyList()).toMutableList()
-//                updatedList.addAll(newRecipients)
-//                _recipients.postValue(updatedList)
-//
-//                currentStartIndex += batchSize
-//            } else {
-//                hasMoreServiceContacts = false
-//
-//                // ✅ Force LiveData update so `observe` is triggered
-//                _recipients.postValue(_recipients.value) // ✅ Even though data is the same, this triggers observers
-//            }
+    fun loadDeviceContacts(context: Context, startIndex: Int, batchSize: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            Log.d("ThreadCheck", "loadDeviceContacts ${Thread.currentThread().name}")
+            _isDeviceContactsLoaded.postValue(false) // ✅ Notify UI that loading is started
+            val newDeviceContacts = getDeviceContacts(context, startIndex, batchSize)
+            if (newDeviceContacts.isNotEmpty()) {
+                _deviceContacts.postValue(newDeviceContacts)
+                _deviceActiveContacts.postValue(newDeviceContacts.filter { it.status == "ACTIVE" })
+            }
+            _isDeviceContactsLoaded.postValue(true) // ✅ Notify UI that loading is done
         }
     }
 }
 
-class ContactViewModelFactory(private val repository: ContactRepository) : ViewModelProvider.Factory {
+class ContactViewModelFactory(private val repository: ContactRepository) :
+    ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ContactViewModel::class.java)) {
             return ContactViewModel(repository) as T

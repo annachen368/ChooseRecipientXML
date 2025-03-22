@@ -12,11 +12,6 @@ import com.example.chooserecipientxml.model.Identifier
 import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
 import java.util.UUID
-import kotlin.random.Random
-
-// ✅ Global variable to track total fake contacts generated
-private var totalFakeContactsGenerated = 0
-private const val MAX_FAKE_CONTACTS = 200
 
 // TODO: Inject ApiService and ContactRepository
 private val apiService = ApiService.create()
@@ -59,20 +54,10 @@ suspend fun getDeviceContacts(context: Context, startIndex: Int, batchSize: Int)
         }
     }
 
-    // ✅ If real contacts are fewer than the requested batch, generate fake contacts
-    // These list will not be added to the list of real contacts and not sorted in ASC with the real contacts
-//    if (contacts.size < batchSize && totalFakeContactsGenerated < MAX_FAKE_CONTACTS) {
-//        val remainingFakeContacts = minOf(batchSize - contacts.size, MAX_FAKE_CONTACTS - totalFakeContactsGenerated)
-//
-//        if (remainingFakeContacts > 0) {
-//            contacts.addAll(generateFakeContacts(totalFakeContactsGenerated, remainingFakeContacts))
-//            totalFakeContactsGenerated += remainingFakeContacts // ✅ Update total fake count
-//        }
-//    }
-
-    // 🔄 Call backend service to get ACTIVE status
+    // 🔄 Call backend service to get ACTIVE status // TODO
     if (contacts.isNotEmpty()) {
         try {
+            Log.d("ThreadCheck", "ContactStatusRequest ${Thread.currentThread().name}")
             val request = ContactStatusRequest(
                 contactTokens = contacts.map {
                     ContactTokenRequest(
@@ -112,25 +97,4 @@ suspend fun getDeviceContacts(context: Context, startIndex: Int, batchSize: Int)
  */
 fun normalizePhoneNumber(phoneNumber: String): String {
     return PhoneNumberUtils.normalizeNumber(phoneNumber).replace(Regex("[^0-9+]"), "")
-}
-
-/**
- * ✅ Generates fake contacts but stops at 200 total
- */
-fun generateFakeContacts(startIndex: Int, count: Int): List<Contact> {
-    val fakeContacts = mutableListOf<Contact>()
-
-    repeat(count) {
-        val index = startIndex + it // ✅ Ensure correct numbering
-        fakeContacts.add(
-            Contact(
-                id = UUID.randomUUID().toString(),
-                name = "Fake User $index",
-                phoneNumber = "+847420${Random.nextInt(1000, 9999)}",
-                source = ContactSource.DEVICE
-            )
-        )
-    }
-
-    return fakeContacts
 }

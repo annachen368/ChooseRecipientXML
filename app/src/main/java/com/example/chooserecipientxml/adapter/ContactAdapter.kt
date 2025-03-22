@@ -15,9 +15,10 @@ import java.util.Locale
 
 class ContactAdapter(private val context: Context) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private var serviceContacts = mutableListOf<Contact>()
+    private var serviceRecentContacts = mutableListOf<Contact>()
+    private var serviceMyContacts = mutableListOf<Contact>()
     private var deviceContacts = mutableListOf<Contact>() // pagination
-    private var activatedDeviceContacts = mutableListOf<Contact>() // pagination
+    private var deviceActiveContacts = mutableListOf<Contact>() // pagination
     private var filteredContacts = mutableListOf<Contact>() // ✅ Stores filtered contacts
     private var isSearching = false // ✅ Tracks search state
     private var showLoadingFooter = false
@@ -46,14 +47,6 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         }
     }
 
-//    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ContactViewHolder {
-//        val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-//        return ContactViewHolder(binding)
-//    }
-
-//    override fun onBindViewHolder(holder: ContactViewHolder, position: Int) {
-//        holder.bind(getCurrentList()[position]) // ✅ Use filtered list when searching
-//    }
     companion object {
         private const val VIEW_TYPE_HEADER = 0
         private const val VIEW_TYPE_CONTACT = 1
@@ -98,9 +91,9 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
             holder.bind(item)
         } else if (holder is HeaderViewHolder && item == null) {
             val title = if (position == 0) {
-                "Service Contacts"
+                "Service Contacts - Recent"
             } else if (position == 1) {
-                "Device Contacts"
+                "Service Contacts - My Contacts"
             } else {
                 "ACTIVATED Device Contacts"
             }
@@ -130,18 +123,22 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
             filteredContacts
         } else {
             val list = mutableListOf<Contact?>()
-            if (serviceContacts.isNotEmpty()) {
+            if (serviceRecentContacts.isNotEmpty()) {
                 list.add(null) // Header placeholder
-                list.addAll(serviceContacts)
+                list.addAll(serviceRecentContacts)
+            }
+            if (serviceMyContacts.isNotEmpty()) {
+                list.add(null) // Another header
+                list.addAll(serviceMyContacts)
+            }
+            if (deviceActiveContacts.isNotEmpty()) {
+                list.add(null) // Another header
+                list.addAll(deviceActiveContacts)
             }
 //            if (deviceContacts.isNotEmpty()) {
 //                list.add(null) // Another header
 //                list.addAll(deviceContacts)
 //            }
-            if (activatedDeviceContacts.isNotEmpty()) {
-                list.add(null) // Another header
-                list.addAll(activatedDeviceContacts)
-            }
             list
         }
     }
@@ -149,13 +146,19 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
     /**
      * ✅ Adds new contacts from service response.
      */
-    fun addServiceContacts(newRecipients: List<Contact>) {
+    fun addServiceRecentContacts(newRecipients: List<Contact>) {
         if (!isSearching) { // ✅ Avoid modifying contacts if filtering is active
-            val uniqueRecipients = newRecipients.filter { newContact ->
-                serviceContacts.none { it.id == newContact.id } // ✅ Prevents duplicates
-            }
+            serviceRecentContacts.addAll(newRecipients) // ✅ Append only unique contacts
+            notifyDataSetChanged()
+        }
+    }
 
-            serviceContacts.addAll(uniqueRecipients) // ✅ Append only unique contacts
+    /**
+     * ✅ Adds new contacts from service response.
+     */
+    fun addServiceMyContacts(newRecipients: List<Contact>) {
+        if (!isSearching) { // ✅ Avoid modifying contacts if filtering is active
+            serviceMyContacts.addAll(newRecipients) // ✅ Append only unique contacts
             notifyDataSetChanged()
         }
     }
@@ -170,9 +173,9 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         }
     }
 
-    fun addActivatedDeviceContacts(newDeviceContacts: List<Contact>) {
+    fun addDeviceActiveContacts(newDeviceContacts: List<Contact>) {
         if (!isSearching) {
-            activatedDeviceContacts.addAll(newDeviceContacts)
+            deviceActiveContacts.addAll(newDeviceContacts)
             notifyDataSetChanged()
         }
     }
@@ -186,7 +189,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         isSearching = lowerCaseQuery.isNotEmpty()
 
         filteredContacts = if (isSearching) {
-            (serviceContacts + deviceContacts).filter { contact ->
+            (serviceRecentContacts + serviceMyContacts + deviceContacts).filter { contact ->
                 contact.name.lowercase(Locale.getDefault()).contains(lowerCaseQuery) ||
                         contact.phoneNumber.lowercase(Locale.getDefault()).contains(lowerCaseQuery)
             }.toMutableList()
@@ -201,9 +204,11 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         if (showLoadingFooter != visible) {
             showLoadingFooter = visible
             if (visible) {
-                notifyItemInserted(itemCount) // last item
+//                notifyItemInserted(itemCount) // last item
+                notifyDataSetChanged()
             } else {
-                notifyItemRemoved(itemCount) // last item
+//                notifyItemRemoved(itemCount) // last item
+                notifyDataSetChanged()
             }
         }
     }

@@ -7,5 +7,6 @@ data class Contact(
     val name: String,
     val phoneNumber: String,
     var source: ContactSource? = null,
-    var status: String? = null
+    var status: String? = null,
+    var level: String? = null
 ): Serializable
