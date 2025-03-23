@@ -51,6 +51,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         private const val VIEW_TYPE_HEADER = 0
         private const val VIEW_TYPE_CONTACT = 1
         private const val VIEW_TYPE_LOADING = 2
+        private const val VIEW_TYPE_DISCLOSURE = 3
     }
 
     inner class HeaderViewHolder(private val binding: ItemHeaderBinding) :
@@ -70,6 +71,11 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
                 val view = LayoutInflater.from(parent.context).inflate(R.layout.item_loading_footer, parent, false)
                 object : RecyclerView.ViewHolder(view) {}
             }
+            VIEW_TYPE_DISCLOSURE -> {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.item_disclosure_footer, parent, false)
+                object : RecyclerView.ViewHolder(view) {}
+            }
             else -> {
                 val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
                 ContactViewHolder(binding)
@@ -82,6 +88,11 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
 
         if (showLoadingFooter && position == currentList.size) {
             // This is the footer view. No binding needed.
+            return
+        }
+
+        if (position == itemCount - 1 && getItemViewType(position) == VIEW_TYPE_DISCLOSURE) {
+            // optional: configure disclosure text if needed
             return
         }
 
@@ -104,6 +115,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
     override fun getItemCount(): Int {
         var count = getCurrentListWithHeaders().size
         if (showLoadingFooter) count += 1
+        count += 1 // 👈 For disclosure
         return count
     }
 
@@ -114,6 +126,7 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
                 if (currentList[position] == null) VIEW_TYPE_HEADER else VIEW_TYPE_CONTACT
             }
             showLoadingFooter && position == currentList.size -> VIEW_TYPE_LOADING
+            position == itemCount - 1 -> VIEW_TYPE_DISCLOSURE // 👈 Final position is disclosure
             else -> VIEW_TYPE_CONTACT
         }
     }

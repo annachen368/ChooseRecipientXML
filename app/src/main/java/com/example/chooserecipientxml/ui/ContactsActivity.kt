@@ -1,16 +1,11 @@
 package com.example.chooserecipientxml.ui
 
-import android.animation.ValueAnimator
 import android.graphics.Rect
 import android.os.Bundle
-import android.util.Log
-import android.view.View
 import android.widget.SearchView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
 import com.example.chooserecipientxml.network.ApiService
@@ -24,8 +19,6 @@ class ContactsActivity : AppCompatActivity() {
     private lateinit var adapter: ContactAdapter
     private var isSearching = false
     private var hasMoreContacts: Boolean = true
-    private var headerOriginalHeight = 0
-    private var scrollOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,25 +66,6 @@ class ContactsActivity : AppCompatActivity() {
                 if (contacts.isEmpty()) {
                     hasMoreContacts = false
                 }
-
-                // Slight delay before checking scroll state (to give layout time to update)
-//              // ✅ Important: Check again in case list is still too short to scroll
-//                binding.recyclerView.post {
-//                    if (!binding.recyclerView.canScrollVertically(1) && contacts.isNotEmpty()) {
-//                        isLoading = true
-//                        loadMoreContacts()
-//                    }
-//                }
-
-                // Keep loading more if RecyclerView is still not scrollable
-//                // TODO: check why last one is not showing...?? last step
-//                if (!isLoading && !binding.recyclerView.canScrollVertically(1)) {
-//                    if (contacts.isNotEmpty()) {
-//                        loadMoreContacts()
-//                    } else {
-//                        binding.recyclerView.scrollToPosition(adapter.itemCount - 1)
-//                    }
-//                }
             }
         }
 
@@ -105,50 +79,7 @@ class ContactsActivity : AppCompatActivity() {
 
         viewModel.isDeviceContactsLoaded.observe(this) { isLoaded ->
             adapter.setLoadingFooterVisible(!isLoaded)
-//            if (isLoaded == true) {
-//                binding.progressBar.visibility = View.GONE
-//            } else {
-//                binding.progressBar.visibility = View.VISIBLE
-//            }
         }
-
-        // ✅ Implement Infinite Scroll for Device Contacts
-//        Since NestedScrollView is now handling the scrolling, you need to observe its scroll instead of RecyclerView’s:
-//        binding.nestedScrollView.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
-//            val view = v as NestedScrollView
-//            val diff = view.getChildAt(view.childCount - 1).bottom - (view.height + scrollY)
-//
-//            if (diff <= 0 && !isLoading) {
-//                isLoading = true
-//                loadMoreContacts()
-//            }
-//        }
-
-//        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-//            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-//                super.onScrolled(recyclerView, dx, dy)
-//
-//                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-//                val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
-//                val lastVisibleItemPosition = layoutManager.findLastVisibleItemPosition()
-//                val visibleItemCount = layoutManager.childCount
-//                val totalItemCount = layoutManager.itemCount
-//
-//                Log.d("ScrollCheck", "visible=$visibleItemCount, firstVisible=$firstVisibleItemPosition, total=$totalItemCount")
-//
-////                val visibleThreshold = 10 // small value to pre-load early
-////                if (!isSearching && !isLoading && (firstVisibleItemPosition + visibleItemCount + visibleThreshold) >= totalItemCount) {
-////                    loadMoreContacts()
-////                }
-//
-//                // Don’t rely solely on canScrollVertically(1)
-//                // near
-//                val isAtBottom = lastVisibleItemPosition + 5 >= totalItemCount//firstVisibleItemPosition + visibleItemCount >= totalItemCount - 1
-//                if (!isLoading && isAtBottom) {
-//                    loadMoreContacts()
-//                }
-//            }
-//        })
 
         // ✅ Implement Search Filtering
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -160,32 +91,12 @@ class ContactsActivity : AppCompatActivity() {
                 return true
             }
         })
-
-        // Capture original header height after layout
-//        binding.headerTextView.post {
-//            headerOriginalHeight = binding.headerTextView.height
-//        }
-//
-//        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-//            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-//                scrollOffset += dy
-//                val clampedOffset = scrollOffset.coerceIn(0, headerOriginalHeight)
-//                val remainingHeight = (headerOriginalHeight - clampedOffset).coerceAtLeast(0)
-//
-//                // Shrink header height
-//                val layoutParams = binding.headerTextView.layoutParams
-//                layoutParams.height = remainingHeight
-//                binding.headerTextView.layoutParams = layoutParams
-//
-//                // Optional: fade out
-//                binding.headerTextView.alpha = remainingHeight.toFloat() / headerOriginalHeight
-//            }
-//        })
     }
 
     private var isLoading = false
     private var currentPage = 0
-//    private val batchSize = 200 // TODO: check what batch size to use
+
+    //    private val batchSize = 200 // TODO: check what batch size to use
     private val batchSize = 10
 
     private fun loadMoreContacts() {
@@ -206,16 +117,10 @@ class ContactsActivity : AppCompatActivity() {
      * You need a persistent check loop to watch whether the RecyclerView's last item is visible even
      * when no scroll happens (e.g., during initial load or after each batch).
      */
-//    private fun isLastItemVisible(): Boolean {
-//        val layoutManager = binding.recyclerView.layoutManager as LinearLayoutManager
-//        val lastVisibleItemPosition = layoutManager.findLastCompletelyVisibleItemPosition()
-//        val totalItemCount = layoutManager.itemCount
-//
-//        return lastVisibleItemPosition == totalItemCount - 1
-//    }
     private fun isLastItemVisible(): Boolean {
         val lastIndex = binding.recyclerView.adapter?.itemCount?.minus(1) ?: return false
-        val viewHolder = binding.recyclerView.findViewHolderForAdapterPosition(lastIndex) ?: return false
+        val viewHolder =
+            binding.recyclerView.findViewHolderForAdapterPosition(lastIndex) ?: return false
 
         val itemView = viewHolder.itemView
         val visibleRect = Rect()

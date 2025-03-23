@@ -1,0 +1,58 @@
+<MotionScene xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:motion="http://schemas.android.com/apk/res-auto">
+
+    <Transition
+        motion:constraintSetStart="@id/start"
+        motion:constraintSetEnd="@id/end"
+        motion:duration="300"
+        motion:motionInterpolator="easeInOut">
+
+        <!-- ✅ Detect upward scroll drag on RecyclerView -->
+        <OnSwipe
+            motion:dragDirection="dragUp"
+            motion:touchAnchorId="@+id/recyclerView"
+            motion:touchAnchorSide="top" />
+    </Transition>
+
+    <!-- 🟢 Start: Header fully visible -->
+    <ConstraintSet android:id="@+id/start">
+        <Constraint android:id="@id/headerTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            motion:layout_constraintTop_toBottomOf="@id/warningTextView"
+            android:alpha="1.0" />
+
+        <Constraint android:id="@id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            motion:layout_constraintTop_toBottomOf="@id/headerTextView" />
+
+        <Constraint android:id="@id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            motion:layout_constraintTop_toBottomOf="@id/searchView"
+            motion:layout_constraintBottom_toBottomOf="parent" />
+    </ConstraintSet>
+
+    <!-- 🔴 End: Header collapsed -->
+    <ConstraintSet android:id="@+id/end">
+        <Constraint android:id="@id/headerTextView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            motion:layout_constraintHeight_default="percent"
+            motion:layout_constraintHeight_percent="0"
+            motion:layout_constraintTop_toBottomOf="@id/warningTextView"
+            android:alpha="0.0" />
+
+        <Constraint android:id="@id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            motion:layout_constraintTop_toBottomOf="@id/headerTextView" />
+
+        <Constraint android:id="@id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            motion:layout_constraintTop_toBottomOf="@id/searchView"
+            motion:layout_constraintBottom_toBottomOf="parent" />
+    </ConstraintSet>
+</MotionScene>
