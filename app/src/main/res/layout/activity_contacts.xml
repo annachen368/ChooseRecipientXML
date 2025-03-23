@@ -4,46 +4,48 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-<!--    <TextView-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:text="Header"-->
-<!--        android:textSize="20sp"-->
-<!--        android:textStyle="bold"-->
-<!--        android:textColor="#000"-->
-<!--        android:background="#EEEEEE"-->
-<!--        android:padding="16dp" />-->
+    <!-- 🔴 Always pinned warning text -->
+    <TextView
+        android:id="@+id/warningTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFF8E1"
+        android:elevation="4dp"
+        android:padding="12dp"
+        android:text="⚠️ Warning: Make sure contacts are verified."
+        android:textColor="#FFA000"
+        android:textStyle="bold" />
 
+    <!-- 🔽 Collapsible header directly under CoordinatorLayout -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="48dp"
         android:background="@android:color/white"
-        android:fitsSystemWindows="false">
+        android:elevation="4dp">
+<!--        android:layout_marginTop="48dp" textview size-->
 
         <LinearLayout
-            android:id="@+id/headerLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
-            <!-- ✅ Header TextView (now always visible) -->
             <TextView
                 android:id="@+id/headerTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Choose a Contact"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="#000"
                 android:background="#EEEEEE"
-                android:padding="16dp" />
-
+                android:padding="16dp"
+                android:text="Choose a Contact"
+                android:textColor="#000"
+                android:textSize="20sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- SearchView + RecyclerView content -->
+    <!-- ✅ Scrolling content with behavior -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -54,9 +56,8 @@
             android:id="@+id/searchView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:iconifiedByDefault="false"
             android:queryHint="Search contacts"
-            android:background="@android:color/white" />
+            android:iconifiedByDefault="false" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
@@ -65,4 +66,5 @@
             android:layout_weight="1"
             android:clipToPadding="false" />
     </LinearLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
