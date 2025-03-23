@@ -24,8 +24,8 @@ class ContactsActivity : AppCompatActivity() {
     private lateinit var adapter: ContactAdapter
     private var isSearching = false
     private var hasMoreContacts: Boolean = true
-    private var isHeaderCollapsed = false
-    private var originalHeaderHeight = 0
+    private var headerOriginalHeight = 0
+    private var scrollOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -161,44 +161,26 @@ class ContactsActivity : AppCompatActivity() {
             }
         })
 
-        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-
-            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                super.onScrollStateChanged(recyclerView, newState)
-
-                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                val firstVisible = layoutManager.findFirstVisibleItemPosition()
-
-                // 🟢 When scrolling stops, check if we're at the top
-                if (newState == RecyclerView.SCROLL_STATE_IDLE && firstVisible == 0) {
-                    showHeader()
-                }
-            }
-
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-
-                if (dy > 10) {
-                    hideHeader()
-                }
-            }
-        })
-
-    }
-    private var isHeaderHidden = false
-
-    private fun hideHeader() {
-        if (!isHeaderHidden) {
-            binding.headerGroup.visibility = View.GONE
-            isHeaderHidden = true
-        }
-    }
-
-    private fun showHeader() {
-        if (isHeaderHidden) {
-            binding.headerGroup.visibility = View.VISIBLE
-            isHeaderHidden = false
-        }
+        // Capture original header height after layout
+//        binding.headerTextView.post {
+//            headerOriginalHeight = binding.headerTextView.height
+//        }
+//
+//        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+//            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+//                scrollOffset += dy
+//                val clampedOffset = scrollOffset.coerceIn(0, headerOriginalHeight)
+//                val remainingHeight = (headerOriginalHeight - clampedOffset).coerceAtLeast(0)
+//
+//                // Shrink header height
+//                val layoutParams = binding.headerTextView.layoutParams
+//                layoutParams.height = remainingHeight
+//                binding.headerTextView.layoutParams = layoutParams
+//
+//                // Optional: fade out
+//                binding.headerTextView.alpha = remainingHeight.toFloat() / headerOriginalHeight
+//            }
+//        })
     }
 
     private var isLoading = false
