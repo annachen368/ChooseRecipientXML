@@ -88,6 +88,7 @@ class ContactsActivity : AppCompatActivity() {
             override fun onQueryTextChange(newText: String?): Boolean {
                 isSearching = !newText.isNullOrEmpty()
                 adapter.filter(newText ?: "") // ✅ Update list dynamically
+                loadMoreContacts() // Load more contacts when search is active
                 return true
             }
         })
