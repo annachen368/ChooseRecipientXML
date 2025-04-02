@@ -1,13 +1,21 @@
 package com.example.chooserecipientxml.ui
 
+import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.GridLayout
 import android.widget.SearchView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
+import com.example.chooserecipientxml.databinding.ItemContactGridBinding
 import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.viewmodel.ContactViewModel
@@ -30,6 +38,52 @@ class ContactsActivity : AppCompatActivity() {
         val factory = ContactViewModelFactory(repository)
 
         viewModel = ViewModelProvider(this, factory)[ContactViewModel::class.java]
+
+        repeat(5) { index ->
+            val itemBinding = ItemContactGridBinding.inflate(layoutInflater, binding.contactGrid, false)
+
+            // Set dynamic content
+            itemBinding.name.text = "Contact $index"
+            itemBinding.token.text = "Token $index"
+
+            // Optional: click handler
+            itemBinding.root.setOnClickListener {
+                // Handle click
+            }
+
+            // Add to grid
+            binding.contactGrid.addView(itemBinding.root)
+        }
+
+        binding.searchView1.setOnQueryTextFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                binding.gridViewContainer.visibility = View.GONE
+                binding.listViewContainer.visibility = View.VISIBLE
+                binding.searchView1.clearFocus()
+
+                // Wait for searchView2 to fully inflate
+                binding.searchView2.post {
+                    val searchEditText = binding.searchView2.findViewById<EditText>(androidx.appcompat.R.id.search_src_text)
+                    if (searchEditText != null) {
+                        searchEditText.requestFocus()
+                        searchEditText.setSelection(searchEditText.text.length)
+                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                        imm.showSoftInput(searchEditText, InputMethodManager.SHOW_IMPLICIT)
+                    } else {
+                        Log.w("SearchView", "EditText inside searchView2 not found")
+                    }
+                }
+            }
+        }
+
+        binding.searchView2.setOnCloseListener {
+            binding.listViewContainer.visibility = View.GONE
+            binding.gridViewContainer.visibility = View.VISIBLE
+            binding.searchView2.clearFocus()
+
+            false // return false to allow default behavior (clear query text)
+        }
+
 
         adapter = ContactAdapter(context = this)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
@@ -82,7 +136,7 @@ class ContactsActivity : AppCompatActivity() {
         }
 
         // ✅ Implement Search Filtering
-        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+        binding.searchView2.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = false
 
             override fun onQueryTextChange(newText: String?): Boolean {

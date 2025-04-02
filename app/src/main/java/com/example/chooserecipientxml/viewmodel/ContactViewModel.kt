@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 class ContactViewModel(private val repository: ContactRepository) : ViewModel() {
 
     // Service recipient but filter by level has value
-    private val _serverRecentContacts = MutableLiveData<List<Contact>>()
+    private val _serverRecentContacts = MutableLiveData<List<Contact>>() // TODO: don't use livedata, use stateflow can benefit more. Use sharedFlow is you want to send event to ui
     val serverRecentContacts: LiveData<List<Contact>> get() = _serverRecentContacts
 
     // Service recipients but filter by not having level

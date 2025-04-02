@@ -1,60 +1,80 @@
-<androidx.constraintlayout.motion.widget.MotionLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/motionLayout"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    app:layoutDescription="@xml/collapsing_scene">
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
 
-    <!-- Pinned warning view -->
-    <TextView
-        android:id="@+id/warningTextView"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="⚠️ Warning: Verify your contacts"
-        android:textColor="#FFA000"
-        android:background="#FFF8E1"
-        android:padding="12dp"
-        android:textStyle="bold"
-        android:layout_marginTop="200dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- Collapsible header -->
     <TextView
         android:id="@+id/headerTextView"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#EEEEEE"
-        android:text="Choose a Contact"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="#000"
         android:padding="16dp"
-        app:layout_constraintTop_toBottomOf="@id/warningTextView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        android:text="Choose a Contact"
+        android:textColor="#000"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
-    <!-- SearchView -->
-    <SearchView
-        android:id="@+id/searchView"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:iconifiedByDefault="false"
-        android:queryHint="Search contacts"
-        app:layout_constraintTop_toBottomOf="@id/headerTextView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+    <FrameLayout
+        android:id="@+id/container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
-    <!-- RecyclerView -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/searchView"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <!-- GRID VIEW (First Screen) -->
+        <LinearLayout
+            android:id="@+id/gridViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="visible">
 
-</androidx.constraintlayout.motion.widget.MotionLayout>
+            <SearchView
+                android:id="@+id/searchView1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:focusable="false"
+                android:hint="Hinted search text" /> <!-- So tapping triggers list view -->
+
+            <GridLayout
+                android:id="@+id/contactGrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:columnCount="3"
+                android:rowCount="2" />
+
+            <TextView
+                android:id="@+id/linkText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:text="Link" />
+
+        </LinearLayout>
+
+        <!-- LIST VIEW (Second Screen) -->
+        <LinearLayout
+            android:id="@+id/listViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <SearchView
+                android:id="@+id/searchView2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Hinted search text" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+    </FrameLayout>
+
+</LinearLayout>
