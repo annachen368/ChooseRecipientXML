@@ -1,14 +1,19 @@
 package com.example.chooserecipientxml.repository
 
+import android.content.Context
+import android.provider.ContactsContract
+import android.telephony.PhoneNumberUtils
+import android.util.Log
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.model.ContactSource
-import com.example.chooserecipientxml.model.ContactStatus
 import com.example.chooserecipientxml.model.ContactStatusRequest
-import com.example.chooserecipientxml.model.ContactTokenResponse
+import com.example.chooserecipientxml.model.ContactTokenRequest
+import com.example.chooserecipientxml.model.Identifier
 import com.example.chooserecipientxml.network.ApiService
+import java.util.UUID
 
-class ContactRepository(private val apiService: ApiService) {
-    suspend fun fetchRecipients(): List<Contact> {
+class ContactRepository(private val context: Context, private val apiService: ApiService) {
+    suspend fun fetchServiceContacts(): List<Contact> {
         return try {
             val response = apiService.getCustomerProfile()
             if (response.isSuccessful) {
@@ -29,16 +34,96 @@ class ContactRepository(private val apiService: ApiService) {
         }
     }
 
-    suspend fun fetchContactStatus(request: ContactStatusRequest): List<ContactTokenResponse> {
-        return try {
-            val response = apiService.getContactStatus(request)
-            if (response.isSuccessful) {
-                response.body()?.contactTokens ?: emptyList()
-            } else {
-                emptyList() // Handle API errors gracefully
+    suspend fun fetchDeviceContacts(
+        startIndex: Int,
+        batchSize: Int
+    ): List<Contact> {
+        val contacts = mutableListOf<Contact>()
+        val contentResolver = context.contentResolver
+        val cursor = contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            ),
+            null,
+            null,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC LIMIT $batchSize OFFSET $startIndex"
+        )
+
+        val contactMap =
+            mutableMapOf<String, MutableSet<String>>() // ✅ Track unique numbers per contact
+
+        cursor?.use {
+            val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
+            while (it.moveToNext()) {
+                val name = it.getString(nameIndex)
+                val number = it.getString(numberIndex)
+
+                val normalizedNumber = normalizePhoneNumber(number) // ✅ Normalize number
+
+                if (contactMap[name] == null) {
+                    contactMap[name] = mutableSetOf()
+                }
+
+                // ✅ Only add the contact if the number is unique for this person
+                if (contactMap[name]?.add(normalizedNumber) == true) {
+                    contacts.add(
+                        Contact(
+                            UUID.randomUUID().toString(),
+                            name,
+                            normalizedNumber,
+                            ContactSource.DEVICE
+                        )
+                    )
+                }
             }
-        } catch (e: Exception) {
-            emptyList() // Handle API errors gracefully
         }
+
+        // 🔄 Call backend service to get ACTIVE status // TODO
+        if (contacts.isNotEmpty()) {
+            try {
+                Log.d("ThreadCheck", "ContactStatusRequest ${Thread.currentThread().name}")
+                val request = ContactStatusRequest(
+                    contactTokens = contacts.map {
+                        ContactTokenRequest(
+                            identifier = Identifier("MOBILE", it.phoneNumber)
+                        )
+                    }
+                )
+
+                val response = apiService.getContactStatus(request)
+
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    val statusMap = body?.contactTokens?.associateBy(
+                        { it.identifier.value },
+                        { it.contactStatus?.value }
+                    ) ?: emptyMap()
+
+                    // ✅ Update contact list with ACTIVE status
+                    contacts.forEach { contact ->
+                        if (statusMap[contact.phoneNumber] == "ACTIVE") {
+                            contact.status = "ACTIVE"
+                        }
+                    }
+                } else {
+                    Log.e("ContactCheck", "API call failed: ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e("ContactCheck", "Error checking contact status: ${e.message}")
+            }
+        }
+
+        return contacts
+    }
+
+    /**
+     * ✅ Normalize phone numbers to avoid duplicates with different formats.
+     */
+    fun normalizePhoneNumber(phoneNumber: String): String {
+        return PhoneNumberUtils.normalizeNumber(phoneNumber).replace(Regex("[^0-9+]"), "")
     }
 }

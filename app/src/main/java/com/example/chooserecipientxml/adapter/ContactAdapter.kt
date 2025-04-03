@@ -10,17 +10,18 @@ import com.example.chooserecipientxml.databinding.ItemDisclosureBinding
 import com.example.chooserecipientxml.databinding.ItemHeaderBinding
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.ui.ContactDetailActivity
+import com.example.chooserecipientxml.viewmodel.ContactListItem
 import java.util.Locale
 
 class ContactAdapter(private val context: Context) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private var serviceRecentContacts = mutableListOf<Contact>()
-    private var serviceMyContacts = mutableListOf<Contact>()
-    private var deviceContacts = mutableListOf<Contact>() // pagination
-    private var deviceActiveContacts = mutableListOf<Contact>() // pagination
-    private var filteredContacts = mutableListOf<Contact>() // ✅ Stores filtered contacts
-    private var isSearching = false // ✅ Tracks search state
-    private var showLoadingFooter = false
+    private val items = mutableListOf<ContactListItem>()
+
+    companion object {
+        private const val VIEW_TYPE_HEADER = 0
+        private const val VIEW_TYPE_CONTACT = 1
+        private const val VIEW_TYPE_DISCLOSURE = 2
+    }
 
     inner class ContactViewHolder(private val binding: ItemContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -31,7 +32,6 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
             binding.contactStatus.text = contact.status ?: "Unknown"
             binding.contactSource.text = contact.source?.name ?: "Unknown"
 
-            // Set the click listener for the item
             binding.root.setOnClickListener {
                 val intent = Intent(context, ContactDetailActivity::class.java).apply {
                     putExtra("CONTACT", contact)
@@ -41,17 +41,6 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         }
     }
 
-    companion object {
-        private const val VIEW_TYPE_HEADER = 0
-        private const val VIEW_TYPE_CONTACT = 1
-        private const val VIEW_TYPE_LOADING = 2
-        private const val VIEW_TYPE_DISCLOSURE = 3
-
-        private const val CELL_TYPE_CONTACT = 0
-        private const val CELL_TYPE_HEADER = 1
-        private const val CELL_TYPE_DISCLOSURE = 2
-    }
-
     inner class HeaderViewHolder(private val binding: ItemHeaderBinding) :
         RecyclerView.ViewHolder(binding.root) {
         fun bind(title: String) {
@@ -59,13 +48,14 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         }
     }
 
-    inner class DisclosureViewHolder(private val binding: ItemDisclosureBinding) :
-        RecyclerView.ViewHolder(binding.root) {
-        fun bind() {
-//            val viewStub = binding.disclosure
-//            if (viewStub.parent != null) {
-//                viewStub.inflate()
-//            }
+    inner class DisclosureViewHolder(binding: ItemDisclosureBinding) :
+        RecyclerView.ViewHolder(binding.root)
+
+    override fun getItemViewType(position: Int): Int {
+        return when (items[position]) {
+            is ContactListItem.Header -> VIEW_TYPE_HEADER
+            is ContactListItem.ContactItem -> VIEW_TYPE_CONTACT
+            is ContactListItem.Disclosure -> VIEW_TYPE_DISCLOSURE
         }
     }
 
@@ -75,10 +65,6 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
                 val binding = ItemHeaderBinding.inflate(LayoutInflater.from(parent.context), parent, false)
                 HeaderViewHolder(binding)
             }
-//            VIEW_TYPE_LOADING -> {
-//                val view = LayoutInflater.from(parent.context).inflate(R.layout.item_loading_footer, parent, false)
-//                object : RecyclerView.ViewHolder(view) {}
-//            }
             VIEW_TYPE_DISCLOSURE -> {
                 val binding = ItemDisclosureBinding.inflate(LayoutInflater.from(parent.context), parent, false)
                 DisclosureViewHolder(binding)
@@ -90,149 +76,20 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         }
     }
 
+    override fun getItemCount(): Int = items.size
+
+
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        val currentList = getCurrentListWithHeaders()
-
-//        if (showLoadingFooter && position == currentList.size) {
-//            // This is the footer view. No binding needed.
-//            return
-//        }
-
-        val item = currentList[position]
-
-        when (holder) {
-            is ContactViewHolder -> {
-                holder.bind(item)
-            }
-            is HeaderViewHolder -> {
-                holder.bind(item.name)
-            }
-            is DisclosureViewHolder -> {
-                // Handle disclosure view binding if needed
-                holder.bind()
-            }
+        when (val item = items[position]) {
+            is ContactListItem.Header -> (holder as HeaderViewHolder).bind(item.title)
+            is ContactListItem.ContactItem -> (holder as ContactViewHolder).bind(item.contact)
+            is ContactListItem.Disclosure -> Unit // No binding needed
         }
     }
 
-    override fun getItemCount(): Int {
-        var count = getCurrentListWithHeaders().size
-//        if (showLoadingFooter) count += 1
-        return count
-    }
-
-    override fun getItemViewType(position: Int): Int {
-        val currentList = getCurrentListWithHeaders()
-        return when(currentList[position].cellType) {
-            CELL_TYPE_HEADER -> VIEW_TYPE_HEADER
-            CELL_TYPE_DISCLOSURE -> VIEW_TYPE_DISCLOSURE
-            else -> VIEW_TYPE_CONTACT
-        }
-    }
-
-    private fun getHeader(title: String): Contact {
-        return Contact(id = "", name = title, phoneNumber = "", cellType = CELL_TYPE_HEADER)
-    }
-
-    fun getDisclosure(): Contact {
-        return Contact(id = "", name = "Disclosure", phoneNumber = "", cellType = CELL_TYPE_DISCLOSURE)
-    }
-
-    private fun getCurrentListWithHeaders(): List<Contact> {
-        val list = mutableListOf<Contact>()
-        return if (isSearching) {
-            filteredContacts
-            list.add(getDisclosure())
-            list
-        } else {
-//            val list = mutableListOf<Contact>()
-            if (serviceRecentContacts.isNotEmpty()) {
-                list.add(getHeader("Service Contacts - Recent")) // Header placeholder
-                list.addAll(serviceRecentContacts)
-            }
-            if (serviceMyContacts.isNotEmpty()) {
-                list.add(getHeader("Service Contacts - My Contacts")) // Another header
-                list.addAll(serviceMyContacts)
-            }
-            if (deviceActiveContacts.isNotEmpty()) {
-                list.add(getHeader("ACTIVATED Device Contacts")) // Another header
-                list.addAll(deviceActiveContacts)
-            }
-//            if (deviceContacts.isNotEmpty()) {
-//                list.add(null) // Another header
-//                list.addAll(deviceContacts)
-//            }
-            list.add(getDisclosure()) // Disclosure
-            list
-        }
-    }
-
-    /**
-     * ✅ Adds new contacts from service response.
-     */
-    fun addServiceRecentContacts(newRecipients: List<Contact>) {
-        if (!isSearching) { // ✅ Avoid modifying contacts if filtering is active
-            serviceRecentContacts.addAll(newRecipients) // ✅ Append only unique contacts
-            notifyDataSetChanged()
-        }
-    }
-
-    /**
-     * ✅ Adds new contacts from service response.
-     */
-    fun addServiceMyContacts(newRecipients: List<Contact>) {
-        if (!isSearching) { // ✅ Avoid modifying contacts if filtering is active
-            serviceMyContacts.addAll(newRecipients) // ✅ Append only unique contacts
-            notifyDataSetChanged()
-        }
-    }
-
-    /**
-     * ✅ Adds new contacts from device contact pagination.
-     */
-    fun addDeviceContacts(newDeviceContacts: List<Contact>) {
-        if (!isSearching) {
-            deviceContacts.addAll(newDeviceContacts)
-            notifyDataSetChanged()
-        }
-    }
-
-    fun addDeviceActiveContacts(newDeviceContacts: List<Contact>) {
-        if (!isSearching) {
-            deviceActiveContacts.addAll(newDeviceContacts)
-            notifyDataSetChanged()
-        }
-    }
-
-    /**
-     * ✅ Filters contacts when user types in search.
-     */
-    fun filter(query: String) {
-        val lowerCaseQuery = query.lowercase(Locale.getDefault())
-
-        isSearching = lowerCaseQuery.isNotEmpty()
-
-        filteredContacts = if (isSearching) {
-            (serviceRecentContacts + serviceMyContacts + deviceContacts).filter { contact ->
-                contact.name.lowercase(Locale.getDefault()).contains(lowerCaseQuery) ||
-                        contact.phoneNumber.lowercase(Locale.getDefault()).contains(lowerCaseQuery)
-            }.toMutableList()
-        } else {
-            mutableListOf() // ✅ Clear filtered list when search is empty
-        }
-
+    fun submitItems(newItems: List<ContactListItem>) {
+        items.clear()
+        items.addAll(newItems)
         notifyDataSetChanged()
-    }
-
-    fun setLoadingFooterVisible(visible: Boolean) {
-        if (showLoadingFooter != visible) {
-            showLoadingFooter = visible
-            if (visible) {
-//                notifyItemInserted(itemCount) // last item
-                notifyDataSetChanged()
-            } else {
-//                notifyItemRemoved(itemCount) // last item
-                notifyDataSetChanged()
-            }
-        }
     }
 }
