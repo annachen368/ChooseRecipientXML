@@ -84,14 +84,14 @@ class ContactsActivity : AppCompatActivity() {
                     }
                 }
 
-                launch {
-                    viewModel.isDeviceContactsLoaded.collect { loaded ->
-                        if (loaded) {
-                            // Show something like a progress bar being hidden
-                            Log.d("Contacts", "Device contacts loaded")
-                        }
-                    }
-                }
+//                launch {
+//                    viewModel.isDeviceContactsLoaded.collect { loaded ->
+//                        if (loaded) {
+//                            // Show something like a progress bar being hidden
+//                            Log.d("Contacts", "Device contacts loaded")
+//                        }
+//                    }
+//                }
 
                 launch {
                     viewModel.isListScreenVisible.collect { isListVisible ->
