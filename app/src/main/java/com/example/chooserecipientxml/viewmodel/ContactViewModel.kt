@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -40,6 +41,11 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     val isDeviceContactsLoaded: StateFlow<Boolean> = _isDeviceContactsLoaded.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isListScreenVisible: StateFlow<Boolean> = _isListScreenVisible.asStateFlow()
+
+    private var currentOffset = 0
+    private val pageSize = 200
+    private var isLoading = false
+    private var allLoaded = false
 
     // Final list to be displayed in RecyclerView
     val contactsForUI: StateFlow<List<ContactListItem>> = combine(
@@ -81,7 +87,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
                 repository.fetchServiceContacts()
             }
             val deviceDeferred = async(Dispatchers.IO) {
-                repository.fetchDeviceContacts(0, 200)
+                repository.fetchDeviceContacts(0, pageSize)
             }
 
             val serviceContacts = serviceDeferred.await()
@@ -95,6 +101,9 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
             _serverRecentContacts.value = recent
             _serverMyContacts.value = my
             _isDeviceContactsLoaded.value = true
+
+            currentOffset = device.size
+            allLoaded = device.size < pageSize
         }
     }
 
@@ -217,6 +226,36 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     fun showGridScreen() {
         _isListScreenVisible.value = false
     }
+
+    fun loadMoreDeviceContacts() {
+        if (isLoading || allLoaded) return
+
+        isLoading = true
+
+        viewModelScope.launch {
+            val newContacts = withContext(Dispatchers.IO) {
+                repository.fetchDeviceContacts(currentOffset, pageSize)
+            }
+
+            if (newContacts.isEmpty()) {
+                allLoaded = true
+            } else {
+                _deviceContacts.update { current ->
+                    current + newContacts
+                }
+
+                _deviceActiveContacts.update { current ->
+                    current + newContacts.filter { it.status == "ACTIVE" }
+                }
+
+                currentOffset += newContacts.size
+                allLoaded = newContacts.size < pageSize
+            }
+
+            isLoading = false
+        }
+    }
+
 }
 
 class ContactViewModelFactory(private val repository: ContactRepository) :

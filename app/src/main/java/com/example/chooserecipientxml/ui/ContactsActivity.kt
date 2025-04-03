@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
 import com.example.chooserecipientxml.databinding.ItemContactGridBinding
@@ -67,6 +68,20 @@ class ContactsActivity : AppCompatActivity() {
 
         // Start the loop after setting up RecyclerView
 //        binding.recyclerView.post(autoLoadRunnable)
+        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (dy > 0) {
+                    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                    val totalItemCount = layoutManager.itemCount
+                    val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+
+                    if (lastVisibleItem >= totalItemCount - 5) {
+                        viewModel.loadMoreDeviceContacts()
+                    }
+                }
+            }
+        })
+
     }
 
     private fun observeContacts() {
@@ -134,11 +149,12 @@ class ContactsActivity : AppCompatActivity() {
         }
     }
 
-    private var isLoading = false
-    private var currentPage = 0
+
+//    private var isLoading = false
+//    private var currentPage = 0
 
     //    private val batchSize = 200 // TODO: check what batch size to use
-    private val batchSize = 10
+//    private val batchSize = 10
 
 //    private fun loadMoreContacts() {
 //        isLoading = true
@@ -177,17 +193,16 @@ class ContactsActivity : AppCompatActivity() {
      */
 //    private val autoLoadRunnable = object : Runnable {
 //        override fun run() {
-//            if (!isLoading && isLastItemVisible()) {
-//                isLoading = true
-//                loadMoreContacts()
+//            if (isLastItemVisible()) {
+//                viewModel.loadMoreDeviceContacts()
 //            }
 //            // Keep checking every 500ms
-//            if (hasMoreContacts) {
-//                binding.recyclerView.postDelayed(this, 500)
-//            }
+////            if (hasMoreContacts) {
+////                binding.recyclerView.postDelayed(this, 500)
+////            }
 //        }
 //    }
-
+//
 //    override fun onDestroy() {
 //        super.onDestroy()
 //        binding.recyclerView.removeCallbacks(autoLoadRunnable)
