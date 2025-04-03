@@ -8,11 +8,22 @@ import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.model.ContactSource
 import com.example.chooserecipientxml.model.ContactStatusRequest
 import com.example.chooserecipientxml.model.ContactTokenRequest
+import com.example.chooserecipientxml.model.CustomerProfileResponse
 import com.example.chooserecipientxml.model.Identifier
 import com.example.chooserecipientxml.network.ApiService
 import java.util.UUID
 
 class ContactRepository(private val context: Context, private val apiService: ApiService) {
+
+    private var cachedCustomerProfileDto: CustomerProfileResponse? = null
+
+    // TODO: check
+    suspend fun fetchCustomerProfileDto(): CustomerProfileResponse? {
+        return cachedCustomerProfileDto ?: apiService.getCustomerProfile().body()?.also {
+            cachedCustomerProfileDto = it
+        }
+    }
+
     suspend fun fetchServiceContacts(): List<Contact> {
         Log.d("ThreadCheck", "ServiceContactsRequest ${Thread.currentThread().name}")
         return try {
