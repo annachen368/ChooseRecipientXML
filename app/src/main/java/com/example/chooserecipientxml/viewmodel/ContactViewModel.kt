@@ -46,9 +46,15 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         _serverRecentContacts,
         _serverMyContacts,
         _deviceActiveContacts,
+        _deviceContacts,
         _searchQuery
-    ) { recent, my, device, query ->
-        buildContactList(recent, my, device, query)
+    ) { recent, my, deviceActive, device, query ->
+//        buildContactList(recent, my, device, query)
+        if (query.isNullOrBlank()) {
+            buildContactList(recent, my, deviceActive)
+        } else {
+            buildContactListParallel(recent, my, device, query)
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Combined derived state: filtered contacts matching query
@@ -127,6 +133,81 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
         result.add(ContactListItem.Disclosure)
         return result
+    }
+
+    private fun buildContactList(
+        recent: List<Contact>,
+        my: List<Contact>,
+        device: List<Contact>,
+    ): List<ContactListItem> {
+        val result = mutableListOf<ContactListItem>()
+
+        if (recent.isNotEmpty()) {
+            result.add(ContactListItem.Header("Service Contacts - Recent"))
+            result.addAll(recent.map { ContactListItem.ContactItem(it) })
+        }
+
+        if (my.isNotEmpty()) {
+            result.add(ContactListItem.Header("Service Contacts - My Contacts"))
+            result.addAll(my.map { ContactListItem.ContactItem(it) })
+        }
+
+        if (device.isNotEmpty()) {
+            result.add(ContactListItem.Header("Activated Device Contacts"))
+            result.addAll(device.map { ContactListItem.ContactItem(it) })
+        }
+
+        result.add(ContactListItem.Disclosure)
+        return result
+    }
+
+    suspend fun buildContactListParallel(
+        recent: List<Contact>,
+        my: List<Contact>,
+        device: List<Contact>,
+        query: String
+    ): List<ContactListItem> = withContext(Dispatchers.Default) {
+        val shouldFilter = query.isNotBlank()
+        val lowerQuery = query.lowercase()
+
+        fun List<Contact>.filtered(): List<Contact> {
+            return if (shouldFilter) {
+                this.filter {
+                    it.name.lowercase().contains(lowerQuery) ||
+                            it.phoneNumber.lowercase().contains(lowerQuery)
+                }
+            } else this
+        }
+
+        // Run filtering & transformation for all sections in parallel
+        val recentDeferred = async {
+            val filtered = recent.filtered()
+            if (filtered.isNotEmpty()) {
+                filtered.map { ContactListItem.ContactItem(it) }
+            } else emptyList()
+        }
+
+        val myDeferred = async {
+            val filtered = my.filtered()
+            if (filtered.isNotEmpty()) {
+                filtered.map { ContactListItem.ContactItem(it) }
+            } else emptyList()
+        }
+
+        val deviceDeferred = async {
+            val filtered = device.filtered()
+            if (filtered.isNotEmpty()) {
+                filtered.map { ContactListItem.ContactItem(it) }
+            } else emptyList()
+        }
+
+        // Gather all in order
+        val result = mutableListOf<ContactListItem>()
+        result += recentDeferred.await()
+        result += myDeferred.await()
+        result += deviceDeferred.await()
+        result += ContactListItem.Disclosure // always add disclosure at the end
+        result
     }
 
     fun showListScreen() {
