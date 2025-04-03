@@ -1,10 +1,13 @@
 package com.example.chooserecipientxml.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.repository.ContactRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ContactViewModel(private val repository: ContactRepository) : ViewModel() {
 
@@ -67,11 +71,18 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     // Example loader function
     fun loadContacts() {
         viewModelScope.launch {
+            val serviceDeferred = async(Dispatchers.IO) {
+                repository.fetchServiceContacts()
+            }
+            val deviceDeferred = async(Dispatchers.IO) {
+                repository.fetchDeviceContacts(0, 200)
+            }
 
-            val serviceContacts = repository.fetchServiceContacts()
+            val serviceContacts = serviceDeferred.await()
+            val device = deviceDeferred.await()
+
             val recent = serviceContacts.filter { it.level != null }
             val my = serviceContacts.filter { it.level == null }
-            val device = repository.fetchDeviceContacts(0, 200)
 
             _deviceContacts.value = device
             _deviceActiveContacts.value = device.filter { it.status == "ACTIVE" }
