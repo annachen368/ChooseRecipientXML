@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.databinding.ItemDisclosureBinding
@@ -11,11 +13,9 @@ import com.example.chooserecipientxml.databinding.ItemHeaderBinding
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.ui.ContactDetailActivity
 import com.example.chooserecipientxml.viewmodel.ContactListItem
-import java.util.Locale
 
-class ContactAdapter(private val context: Context) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
-    private val items = mutableListOf<ContactListItem>()
+class ContactAdapter(private val context: Context) :
+    ListAdapter<ContactListItem, RecyclerView.ViewHolder>(ContactListItemDiffCallback()) {
 
     companion object {
         private const val VIEW_TYPE_HEADER = 0
@@ -23,36 +23,8 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
         private const val VIEW_TYPE_DISCLOSURE = 2
     }
 
-    inner class ContactViewHolder(private val binding: ItemContactBinding) :
-        RecyclerView.ViewHolder(binding.root) {
-
-        fun bind(contact: Contact) {
-            binding.contactName.text = contact.name
-            binding.contactPhone.text = contact.phoneNumber
-            binding.contactStatus.text = contact.status ?: "Unknown"
-            binding.contactSource.text = contact.source?.name ?: "Unknown"
-
-            binding.root.setOnClickListener {
-                val intent = Intent(context, ContactDetailActivity::class.java).apply {
-                    putExtra("CONTACT", contact)
-                }
-                context.startActivity(intent)
-            }
-        }
-    }
-
-    inner class HeaderViewHolder(private val binding: ItemHeaderBinding) :
-        RecyclerView.ViewHolder(binding.root) {
-        fun bind(title: String) {
-            binding.headerTitle.text = title
-        }
-    }
-
-    inner class DisclosureViewHolder(binding: ItemDisclosureBinding) :
-        RecyclerView.ViewHolder(binding.root)
-
     override fun getItemViewType(position: Int): Int {
-        return when (items[position]) {
+        return when (getItem(position)) {
             is ContactListItem.Header -> VIEW_TYPE_HEADER
             is ContactListItem.ContactItem -> VIEW_TYPE_CONTACT
             is ContactListItem.Disclosure -> VIEW_TYPE_DISCLOSURE
@@ -60,36 +32,73 @@ class ContactAdapter(private val context: Context) : RecyclerView.Adapter<Recycl
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
             VIEW_TYPE_HEADER -> {
-                val binding = ItemHeaderBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+                val binding = ItemHeaderBinding.inflate(inflater, parent, false)
                 HeaderViewHolder(binding)
             }
-            VIEW_TYPE_DISCLOSURE -> {
-                val binding = ItemDisclosureBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-                DisclosureViewHolder(binding)
-            }
-            else -> {
-                val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            VIEW_TYPE_CONTACT -> {
+                val binding = ItemContactBinding.inflate(inflater, parent, false)
                 ContactViewHolder(binding)
             }
+            VIEW_TYPE_DISCLOSURE -> {
+                val binding = ItemDisclosureBinding.inflate(inflater, parent, false)
+                DisclosureViewHolder(binding)
+            }
+            else -> throw IllegalArgumentException("Unknown view type $viewType")
         }
     }
-
-    override fun getItemCount(): Int = items.size
-
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        when (val item = items[position]) {
-            is ContactListItem.Header -> (holder as HeaderViewHolder).bind(item.title)
+        when (val item = getItem(position)) {
+            is ContactListItem.Header -> (holder as HeaderViewHolder).bind(item)
             is ContactListItem.ContactItem -> (holder as ContactViewHolder).bind(item.contact)
-            is ContactListItem.Disclosure -> Unit // No binding needed
+            is ContactListItem.Disclosure -> {} // No binding needed
         }
     }
 
-    fun submitItems(newItems: List<ContactListItem>) {
-        items.clear()
-        items.addAll(newItems)
-        notifyDataSetChanged()
+    inner class ContactViewHolder(private val binding: ItemContactBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(contact: Contact) {
+            binding.contactName.text = contact.name
+            binding.contactPhone.text = contact.phoneNumber
+            binding.contactStatus.text = contact.status ?: "Unknown"
+            binding.contactSource.text = contact.source?.name ?: "Unknown"
+
+            binding.root.setOnClickListener {
+                val intent = Intent(context, ContactDetailActivity::class.java)
+                intent.putExtra("contact_id", contact.id)
+                context.startActivity(intent)
+            }
+        }
+    }
+
+    inner class HeaderViewHolder(private val binding: ItemHeaderBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(header: ContactListItem.Header) {
+            binding.headerTitle.text = header.title
+        }
+    }
+
+    inner class DisclosureViewHolder(binding: ItemDisclosureBinding) :
+        RecyclerView.ViewHolder(binding.root)
+}
+
+class ContactListItemDiffCallback : DiffUtil.ItemCallback<ContactListItem>() {
+    override fun areItemsTheSame(oldItem: ContactListItem, newItem: ContactListItem): Boolean {
+        return when {
+            oldItem is ContactListItem.Header && newItem is ContactListItem.Header ->
+                oldItem.title == newItem.title
+            oldItem is ContactListItem.ContactItem && newItem is ContactListItem.ContactItem ->
+                oldItem.contact.id == newItem.contact.id
+            oldItem is ContactListItem.Disclosure && newItem is ContactListItem.Disclosure ->
+                true // Only one disclosure, treat as same
+            else -> false
+        }
+    }
+
+    override fun areContentsTheSame(oldItem: ContactListItem, newItem: ContactListItem): Boolean {
+        return oldItem == newItem
     }
 }
