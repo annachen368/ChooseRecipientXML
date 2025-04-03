@@ -57,13 +57,13 @@ class ContactsActivity : AppCompatActivity() {
 //            binding.contactGrid.addView(itemBinding.root)
 //        }
 
-        viewModel.loadContacts()
-        observeContacts()
-        setupSearchView()
-
         adapter = ContactAdapter(context = this)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+
+        viewModel.loadContacts()
+        observeContacts()
+        setupSearchView()
 
         // Start the loop after setting up RecyclerView
 //        binding.recyclerView.post(autoLoadRunnable)
@@ -74,7 +74,13 @@ class ContactsActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.contactsForUI.collect { items ->
-                        adapter.submitItems(items)
+//                        var shouldScrollToTop = true // Ensure this is reset for each collection
+                        adapter.submitList(items) {
+//                            if (shouldScrollToTop) {
+                                binding.recyclerView.scrollToPosition(0)
+//                                shouldScrollToTop = false
+//                            }
+                        }
                     }
                 }
 
@@ -92,13 +98,6 @@ class ContactsActivity : AppCompatActivity() {
                         if (isListVisible) {
                             binding.gridViewContainer.visibility = View.GONE
                             binding.listViewContainer.visibility = View.VISIBLE
-
-                            binding.searchView2.post {
-                                val searchEditText = binding.searchView2.findViewById<EditText>(
-                                    androidx.appcompat.R.id.search_src_text
-                                )
-                                searchEditText?.requestFocus()
-                            }
                         } else {
                             binding.gridViewContainer.visibility = View.VISIBLE
                             binding.listViewContainer.visibility = View.GONE
@@ -130,7 +129,6 @@ class ContactsActivity : AppCompatActivity() {
         })
 
         binding.searchView2.setOnCloseListener {
-            binding.searchView2.clearFocus()
             viewModel.showGridScreen()
             false
         }
