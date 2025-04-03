@@ -25,6 +25,9 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     // Search query input from UI
     private val _searchQuery = MutableStateFlow("")
 
+    // Visibility state for list screen
+    private val _isListScreenVisible = MutableStateFlow(false)
+
     // Public state exposed to UI
     val serverRecentContacts: StateFlow<List<Contact>> = _serverRecentContacts.asStateFlow()
     val serverMyContacts: StateFlow<List<Contact>> = _serverMyContacts.asStateFlow()
@@ -32,6 +35,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     val deviceActiveContacts: StateFlow<List<Contact>> = _deviceActiveContacts.asStateFlow()
     val isDeviceContactsLoaded: StateFlow<Boolean> = _isDeviceContactsLoaded.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    val isListScreenVisible: StateFlow<Boolean> = _isListScreenVisible.asStateFlow()
 
     // Final list to be displayed in RecyclerView
     val contactsForUI: StateFlow<List<ContactListItem>> = combine(
@@ -112,6 +116,14 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
         result.add(ContactListItem.Disclosure)
         return result
+    }
+
+    fun showListScreen() {
+        _isListScreenVisible.value = true
+    }
+
+    fun showGridScreen() {
+        _isListScreenVisible.value = false
     }
 }
 

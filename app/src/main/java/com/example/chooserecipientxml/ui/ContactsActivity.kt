@@ -86,6 +86,25 @@ class ContactsActivity : AppCompatActivity() {
                         }
                     }
                 }
+
+                launch {
+                    viewModel.isListScreenVisible.collect { isListVisible ->
+                        if (isListVisible) {
+                            binding.gridViewContainer.visibility = View.GONE
+                            binding.listViewContainer.visibility = View.VISIBLE
+
+                            binding.searchView2.post {
+                                val searchEditText = binding.searchView2.findViewById<EditText>(
+                                    androidx.appcompat.R.id.search_src_text
+                                )
+                                searchEditText?.requestFocus()
+                            }
+                        } else {
+                            binding.gridViewContainer.visibility = View.VISIBLE
+                            binding.listViewContainer.visibility = View.GONE
+                        }
+                    }
+                }
             }
         }
     }
@@ -93,10 +112,8 @@ class ContactsActivity : AppCompatActivity() {
     private fun setupSearchView() {
         binding.searchView1.setOnQueryTextFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                binding.gridViewContainer.visibility = View.GONE
-                binding.listViewContainer.visibility = View.VISIBLE
                 binding.searchView1.clearFocus()
-                binding.searchView2.requestFocus()
+                viewModel.showListScreen()
             }
         }
 
@@ -113,11 +130,9 @@ class ContactsActivity : AppCompatActivity() {
         })
 
         binding.searchView2.setOnCloseListener {
-            binding.listViewContainer.visibility = View.GONE
-            binding.gridViewContainer.visibility = View.VISIBLE
             binding.searchView2.clearFocus()
-
-            false // return false to allow default behavior (clear query text)
+            viewModel.showGridScreen()
+            false
         }
     }
 
