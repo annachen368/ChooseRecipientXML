@@ -14,6 +14,7 @@ import java.util.UUID
 
 class ContactRepository(private val context: Context, private val apiService: ApiService) {
     suspend fun fetchServiceContacts(): List<Contact> {
+        Log.d("ThreadCheck", "ServiceContactsRequest ${Thread.currentThread().name}")
         return try {
             val response = apiService.getCustomerProfile()
             if (response.isSuccessful) {
@@ -38,6 +39,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
         startIndex: Int,
         batchSize: Int
     ): List<Contact> {
+        Log.d("ThreadCheck", "DeviceContactsRequest ${Thread.currentThread().name}")
         val contacts = mutableListOf<Contact>()
         val contentResolver = context.contentResolver
         val cursor = contentResolver.query(
