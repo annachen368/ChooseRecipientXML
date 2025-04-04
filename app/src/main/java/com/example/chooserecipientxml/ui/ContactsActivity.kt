@@ -61,6 +61,8 @@ class ContactsActivity : AppCompatActivity() {
         adapter = ContactAdapter(context = this)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+        binding.recyclerView.itemAnimator = null
+
 
         viewModel.loadAllContacts()
         observeContacts()
