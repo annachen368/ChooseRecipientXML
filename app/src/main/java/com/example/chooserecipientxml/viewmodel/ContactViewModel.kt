@@ -91,19 +91,24 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
             }
 
             val serviceContacts = serviceDeferred.await()
-            val device = deviceDeferred.await()
+            val deviceContacts = deviceDeferred.await()
+
+            // 🔄 Call status check after contacts are retrieved
+            withContext(Dispatchers.IO) {
+                repository.checkDeviceContactStatus(deviceContacts)
+            }
 
             val recent = serviceContacts.filter { it.level != null }
             val my = serviceContacts.filter { it.level == null }
 
-            _deviceContacts.value = device
-            _deviceActiveContacts.value = device.filter { it.status == "ACTIVE" }
+            _deviceContacts.value = deviceContacts
+            _deviceActiveContacts.value = deviceContacts.filter { it.status == "ACTIVE" }
             _serverRecentContacts.value = recent
             _serverMyContacts.value = my
             _isDeviceContactsLoaded.value = true
 
-            currentOffset = device.size
-            allLoaded = device.size < pageSize
+            currentOffset = deviceContacts.size
+            allLoaded = deviceContacts.size < pageSize
         }
     }
 

@@ -95,42 +95,42 @@ class ContactRepository(private val context: Context, private val apiService: Ap
             }
         }
 
-        // 🔄 Call backend service to get ACTIVE status // TODO
-        if (contacts.isNotEmpty()) {
-            try {
-                Log.d("ThreadCheck", "ContactStatusRequest ${Thread.currentThread().name}")
-                val request = ContactStatusRequest(
-                    contactTokens = contacts.map {
-                        ContactTokenRequest(
-                            identifier = Identifier("MOBILE", it.phoneNumber)
-                        )
-                    }
-                )
-
-                val response = apiService.getContactStatus(request)
-
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    val statusMap = body?.contactTokens?.associateBy(
-                        { it.identifier.value },
-                        { it.contactStatus?.value }
-                    ) ?: emptyMap()
-
-                    // ✅ Update contact list with ACTIVE status
-                    contacts.forEach { contact ->
-                        if (statusMap[contact.phoneNumber] == "ACTIVE") {
-                            contact.status = "ACTIVE"
-                        }
-                    }
-                } else {
-                    Log.e("ContactCheck", "API call failed: ${response.errorBody()?.string()}")
-                }
-            } catch (e: Exception) {
-                Log.e("ContactCheck", "Error checking contact status: ${e.message}")
-            }
-        }
-
         return contacts
+    }
+
+    suspend fun checkDeviceContactStatus(contacts: List<Contact>) {
+        if (contacts.isEmpty()) return
+
+        try {
+            Log.d("ThreadCheck", "ContactStatusRequest ${Thread.currentThread().name}")
+            val request = ContactStatusRequest(
+                contactTokens = contacts.map {
+                    ContactTokenRequest(
+                        identifier = Identifier("MOBILE", it.phoneNumber)
+                    )
+                }
+            )
+
+            val response = apiService.getContactStatus(request)
+
+            if (response.isSuccessful) {
+                val body = response.body()
+                val statusMap = body?.contactTokens?.associateBy(
+                    { it.identifier.value },
+                    { it.contactStatus?.value }
+                ) ?: emptyMap()
+
+                contacts.forEach { contact ->
+                    if (statusMap[contact.phoneNumber] == "ACTIVE") {
+                        contact.status = "ACTIVE"
+                    }
+                }
+            } else {
+                Log.e("ContactCheck", "API call failed: ${response.errorBody()?.string()}")
+            }
+        } catch (e: Exception) {
+            Log.e("ContactCheck", "Error checking contact status: ${e.message}")
+        }
     }
 
     /**
