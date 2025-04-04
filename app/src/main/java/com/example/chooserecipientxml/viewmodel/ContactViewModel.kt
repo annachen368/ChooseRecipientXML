@@ -245,23 +245,28 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         isLoading = true
 
         viewModelScope.launch {
-            val newContacts = withContext(Dispatchers.IO) {
+            val deviceContacts = withContext(Dispatchers.IO) {
                 repository.fetchDeviceContacts(currentOffset, pageSize)
             }
 
-            if (newContacts.isEmpty()) {
+            if (deviceContacts.isEmpty()) {
                 allLoaded = true
             } else {
+                // ✅ Check contact status before updating state
+                withContext(Dispatchers.IO) {
+                    repository.checkDeviceContactStatus(deviceContacts)
+                }
+
                 _deviceContacts.update { current ->
-                    current + newContacts
+                    current + deviceContacts
                 }
 
                 _deviceActiveContacts.update { current ->
-                    current + newContacts.filter { it.status == "ACTIVE" }
+                    current + deviceContacts.filter { it.status == "ACTIVE" }
                 }
 
-                currentOffset += newContacts.size
-                allLoaded = newContacts.size < pageSize
+                currentOffset += deviceContacts.size
+                allLoaded = deviceContacts.size < pageSize
             }
 
             isLoading = false
