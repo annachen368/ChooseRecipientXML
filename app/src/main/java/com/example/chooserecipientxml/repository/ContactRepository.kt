@@ -25,10 +25,11 @@ class ContactRepository(private val context: Context, private val apiService: Ap
     }
 
     suspend fun fetchServiceContacts(): List<Contact> {
-        Log.d("ThreadCheck", "ServiceContactsRequest ${Thread.currentThread().name}")
+        Log.d("ThreadCheck", "ServiceContactsRequest start ${Thread.currentThread().name}")
         return try {
             val response = apiService.getCustomerProfile()
             if (response.isSuccessful) {
+                Log.d("ThreadCheck", "ServiceContactsRequest end ${Thread.currentThread().name}")
                 response.body()?.recipients?.map { recipient ->
                     Contact(
                         id = recipient.recipientId,
@@ -50,7 +51,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
         startIndex: Int,
         batchSize: Int
     ): List<Contact> {
-        Log.d("ThreadCheck", "DeviceContactsRequest ${Thread.currentThread().name}")
+        Log.d("ThreadCheck", "DeviceContactsRequest start ${Thread.currentThread().name}")
         val contacts = mutableListOf<Contact>()
         val contentResolver = context.contentResolver
         val cursor = contentResolver.query(
@@ -95,6 +96,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
             }
         }
 
+        Log.d("ThreadCheck", "DeviceContactsRequest end ${Thread.currentThread().name}")
         return contacts
     }
 
@@ -102,7 +104,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
         if (contacts.isEmpty()) return
 
         try {
-            Log.d("ThreadCheck", "ContactStatusRequest ${Thread.currentThread().name}")
+            Log.d("ThreadCheck", "ContactStatusRequest start ${Thread.currentThread().name}")
             val request = ContactStatusRequest(
                 contactTokens = contacts.map {
                     ContactTokenRequest(
@@ -125,6 +127,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                         contact.status = "ACTIVE"
                     }
                 }
+                Log.d("ThreadCheck", "ContactStatusRequest end ${Thread.currentThread().name}")
             } else {
                 Log.e("ContactCheck", "API call failed: ${response.errorBody()?.string()}")
             }

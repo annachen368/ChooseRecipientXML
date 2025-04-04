@@ -80,31 +80,38 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         _searchQuery.value = query
     }
 
-    // Example loader function
-    fun loadContacts() {
+    fun loadAllContacts() {
+        loadServiceContacts()
+        loadDeviceContacts()
+    }
+
+    fun loadServiceContacts() {
         viewModelScope.launch {
-            val serviceDeferred = async(Dispatchers.IO) {
+            val serviceContacts = withContext(Dispatchers.IO) {
                 repository.fetchServiceContacts()
-            }
-            val deviceDeferred = async(Dispatchers.IO) {
-                repository.fetchDeviceContacts(currentOffset, pageSize)
-            }
-
-            val serviceContacts = serviceDeferred.await()
-            val deviceContacts = deviceDeferred.await()
-
-            // 🔄 Call status check after contacts are retrieved
-            withContext(Dispatchers.IO) {
-                repository.checkDeviceContactStatus(deviceContacts)
             }
 
             val recent = serviceContacts.filter { it.level != null }
             val my = serviceContacts.filter { it.level == null }
 
-            _deviceContacts.value = deviceContacts
-            _deviceActiveContacts.value = deviceContacts.filter { it.status == "ACTIVE" }
             _serverRecentContacts.value = recent
             _serverMyContacts.value = my
+        }
+    }
+
+    fun loadDeviceContacts() {
+        viewModelScope.launch {
+            val deviceContacts = withContext(Dispatchers.IO) {
+                repository.fetchDeviceContacts(currentOffset, pageSize)
+            }
+
+            // Wait for status check to complete
+            withContext(Dispatchers.IO) {
+                repository.checkDeviceContactStatus(deviceContacts)
+            }
+
+            _deviceContacts.value = deviceContacts
+            _deviceActiveContacts.value = deviceContacts.filter { it.status == "ACTIVE" }
             _isDeviceContactsLoaded.value = true
 
             currentOffset = deviceContacts.size
