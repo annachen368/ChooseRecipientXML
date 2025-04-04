@@ -87,7 +87,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
                 repository.fetchServiceContacts()
             }
             val deviceDeferred = async(Dispatchers.IO) {
-                repository.fetchDeviceContacts(0, pageSize)
+                repository.fetchDeviceContacts(currentOffset, pageSize)
             }
 
             val serviceContacts = serviceDeferred.await()
