@@ -23,6 +23,8 @@ import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.viewmodel.ContactViewModel
 import com.example.chooserecipientxml.viewmodel.ContactViewModelFactory
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ContactsActivity : AppCompatActivity() {
@@ -90,25 +92,16 @@ class ContactsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.contactsForUI.collect { items ->
-//                        var shouldScrollToTop = true // Ensure this is reset for each collection
+                    combine(viewModel.contactsForUI, viewModel.shouldScrollToTop) { items, shouldScroll ->
+                        items to shouldScroll
+                    }.collect { (items, shouldScroll) ->
                         adapter.submitList(items) {
-//                            if (shouldScrollToTop) {
+                            if (shouldScroll) {
                                 binding.recyclerView.scrollToPosition(0)
-//                                shouldScrollToTop = false
-//                            }
+                            }
                         }
                     }
                 }
-
-//                launch {
-//                    viewModel.isDeviceContactsLoaded.collect { loaded ->
-//                        if (loaded) {
-//                            // Show something like a progress bar being hidden
-//                            Log.d("Contacts", "Device contacts loaded")
-//                        }
-//                    }
-//                }
 
                 launch {
                     viewModel.isListScreenVisible.collect { isListVisible ->

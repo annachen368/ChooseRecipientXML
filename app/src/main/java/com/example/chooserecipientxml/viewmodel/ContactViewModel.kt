@@ -1,6 +1,5 @@
 package com.example.chooserecipientxml.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -26,6 +25,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     private val _deviceContacts = MutableStateFlow<List<Contact>>(emptyList())
     private val _deviceActiveContacts = MutableStateFlow<List<Contact>>(emptyList())
     private val _isDeviceContactsLoaded = MutableStateFlow(false)
+    private val _shouldScrollToTop = MutableStateFlow(false)
 
     // Search query input from UI
     private val _searchQuery = MutableStateFlow("")
@@ -41,6 +41,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     val isDeviceContactsLoaded: StateFlow<Boolean> = _isDeviceContactsLoaded.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isListScreenVisible: StateFlow<Boolean> = _isListScreenVisible.asStateFlow()
+    val shouldScrollToTop: StateFlow<Boolean> = _shouldScrollToTop
 
     private var currentOffset = 0
     private val pageSize = 200
@@ -77,6 +78,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
     // Public setter for search query
     fun setSearchQuery(query: String) {
+        _shouldScrollToTop.value = true
         _searchQuery.value = query
     }
 
@@ -86,6 +88,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     }
 
     fun loadServiceContacts() {
+        _shouldScrollToTop.value = true
         viewModelScope.launch {
             val serviceContacts = withContext(Dispatchers.IO) {
                 repository.fetchServiceContacts()
@@ -242,6 +245,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     fun loadMoreDeviceContacts() {
         if (isLoading || allLoaded) return
 
+        _shouldScrollToTop.value = false
         isLoading = true
 
         viewModelScope.launch {
