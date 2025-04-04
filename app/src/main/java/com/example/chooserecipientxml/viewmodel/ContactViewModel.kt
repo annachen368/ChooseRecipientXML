@@ -83,12 +83,12 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     }
 
     fun loadAllContacts() {
+        _shouldScrollToTop.value = true
         loadServiceContacts()
         loadDeviceContacts()
     }
 
     fun loadServiceContacts() {
-        _shouldScrollToTop.value = true
         viewModelScope.launch {
             val serviceContacts = withContext(Dispatchers.IO) {
                 repository.fetchServiceContacts()
