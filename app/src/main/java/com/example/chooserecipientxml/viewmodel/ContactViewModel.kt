@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.repository.ContactRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -26,6 +28,9 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     private val _deviceActiveContacts = MutableStateFlow<List<Contact>>(emptyList())
     private val _isDeviceContactsLoaded = MutableStateFlow(false)
     private val _shouldScrollToTop = MutableStateFlow(false)
+    private val _searchResults = MutableStateFlow<List<ContactListItem>>(emptyList())
+    private val _searchServerContacts = MutableStateFlow<List<Contact>>(emptyList())
+    private val _searchDeviceContacts = MutableStateFlow<List<Contact>>(emptyList())
 
     // Search query input from UI
     private val _searchQuery = MutableStateFlow("")
@@ -42,44 +47,83 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isListScreenVisible: StateFlow<Boolean> = _isListScreenVisible.asStateFlow()
     val shouldScrollToTop: StateFlow<Boolean> = _shouldScrollToTop
+    val searchResults: StateFlow<List<ContactListItem>> = _searchResults.asStateFlow()
+
+    private val checkedContacts = mutableSetOf<String>()
 
     private var currentOffset = 0
     private val pageSize = 200
     private var isLoading = false
     private var allLoaded = false
 
+    private var statusCheckOffset = 200 // Start after first batch
+    private val statusPageSize = 100
+    private val alreadyCheckedPhones = mutableSetOf<String>()
+    private var isCheckingStatus = false
+
     // Final list to be displayed in RecyclerView
     val contactsForUI: StateFlow<List<ContactListItem>> = combine(
         _serverRecentContacts,
         _serverMyContacts,
         _deviceActiveContacts,
-        _deviceContacts,
-        _searchQuery
-    ) { recent, my, deviceActive, device, query ->
-//        buildContactList(recent, my, device, query)
-        if (query.isNullOrBlank()) {
-            buildContactList(recent, my, deviceActive)
-        } else {
-            buildContactListParallel(recent, my, device, query)
+    ) { recent, my, deviceActive ->
+        buildContactList(recent, my, deviceActive)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val isSearchMode: StateFlow<Boolean> = _searchQuery
+        .map { it.isNotBlank() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val displayList = combine(
+        isSearchMode,
+        contactsForUI,
+        searchResults
+    ) { isSearchMode, normalList, searchList ->
+        if (isSearchMode) searchList else normalList
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        viewModelScope.launch {
+            _searchQuery
+                .debounce(300L)
+                .mapLatest { query ->
+                    _shouldScrollToTop.value = true
+                    if (query.isBlank()) {
+                        emptyList()
+                    } else {
+                        searchContacts(query)
+                    }
+                }
+                .collect { results ->
+                    _searchResults.value = results
+                }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
 
-    // Combined derived state: filtered contacts matching query
-    val queryContacts: StateFlow<List<Contact>> = combine(
-        _serverRecentContacts,
-        _serverMyContacts,
-        _deviceContacts,
-        _searchQuery
-    ) { recent, my, device, query ->
-        val allContacts = recent + my + device
-        if (query.isBlank()) allContacts
-        else allContacts.filter { it.name.contains(query, ignoreCase = true) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // Public setter for search query
     fun setSearchQuery(query: String) {
-        _shouldScrollToTop.value = true
         _searchQuery.value = query
+    }
+
+    private suspend fun searchContacts(query: String): List<ContactListItem> {
+        val mergedList = _serverRecentContacts.value +
+                _serverMyContacts.value +
+                _deviceContacts.value
+
+        val matched = mergedList.filter { it.name.contains(query, ignoreCase = true) }
+
+        // Only check device contacts with unknown status and not already checked
+        val uncachedToCheck = matched.filter {
+            it.source.toString() == "DEVICE" && it.status.isNullOrEmpty() && checkedContacts.add(it.phoneNumber)
+        }
+
+        // Limit to 200 contacts for status check on initial search
+        val toCheck = uncachedToCheck.take(pageSize)
+
+        if (toCheck.isNotEmpty()) {
+            updateContactStatusInBackground(toCheck)
+        }
+
+        return matched.map { ContactListItem.ContactItem(it) } + ContactListItem.Disclosure
     }
 
     fun loadAllContacts() {
@@ -105,58 +149,51 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     fun loadDeviceContacts() {
         viewModelScope.launch {
             val deviceContacts = withContext(Dispatchers.IO) {
-                repository.fetchDeviceContacts(currentOffset, pageSize)
-            }
-
-            // Wait for status check to complete
-            withContext(Dispatchers.IO) {
-                repository.checkDeviceContactStatus(deviceContacts)
+                repository.fetchAllDeviceContacts()
             }
 
             _deviceContacts.value = deviceContacts
-            _deviceActiveContacts.value = deviceContacts.filter { it.status == "ACTIVE" }
-            _isDeviceContactsLoaded.value = true
 
-            currentOffset = deviceContacts.size
-            allLoaded = deviceContacts.size < pageSize
+            val firstBatch = deviceContacts.take(pageSize)
+
+            // Replace first 200 with ones that include status
+            withContext(Dispatchers.IO) {
+                repository.checkDeviceContactStatus(firstBatch)
+            }
+
+            // Now firstBatch has updated statuses in-place
+            val updatedList = firstBatch + deviceContacts.drop(pageSize)
+
+            _deviceContacts.value = updatedList
+            _deviceActiveContacts.value = updatedList.filter { it.status == "ACTIVE" }
+
+//            currentOffset = deviceContacts.size
+//            allLoaded = deviceContacts.size < pageSize
         }
     }
 
-    private fun buildContactList(
-        recent: List<Contact>,
-        my: List<Contact>,
-        device: List<Contact>,
-        query: String
-    ): List<ContactListItem> {
-        val result = mutableListOf<ContactListItem>()
+    private fun updateContactStatusInBackground(contacts: List<Contact>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.checkDeviceContactStatus(contacts) // updates in-place
 
-        val shouldFilter = query.isNotBlank()
-        val lowerQuery = query.lowercase()
+            withContext(Dispatchers.Main) {
+                _deviceContacts.update { current ->
+                    current.map { existing ->
+                        val updated = contacts.find { it.id == existing.id }
+                        updated ?: existing
+                    }
+                }
 
-        fun List<Contact>.filtered() = if (shouldFilter) {
-            this.filter {
-                it.name.lowercase().contains(lowerQuery) ||
-                        it.phoneNumber.lowercase().contains(lowerQuery)
+                _deviceActiveContacts.update { current ->
+                    (current + contacts.filter { it.status == "ACTIVE" }).distinctBy { it.phoneNumber }
+                }
+
+                // causing issues with UI - duplicates
+//                _deviceActiveContacts.update { current ->
+//                    current + contacts.filter { it.status == "ACTIVE" && it !in current }
+//                }
             }
-        } else this
-
-        if (recent.filtered().isNotEmpty()) {
-            result.add(ContactListItem.Header("Service Contacts - Recent"))
-            result.addAll(recent.filtered().map { ContactListItem.ContactItem(it) })
         }
-
-        if (my.filtered().isNotEmpty()) {
-            result.add(ContactListItem.Header("Service Contacts - My Contacts"))
-            result.addAll(my.filtered().map { ContactListItem.ContactItem(it) })
-        }
-
-        if (device.filtered().isNotEmpty()) {
-            result.add(ContactListItem.Header("Activated Device Contacts"))
-            result.addAll(device.filtered().map { ContactListItem.ContactItem(it) })
-        }
-
-        result.add(ContactListItem.Disclosure)
-        return result
     }
 
     private fun buildContactList(
@@ -185,55 +222,6 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         return result
     }
 
-    suspend fun buildContactListParallel(
-        recent: List<Contact>,
-        my: List<Contact>,
-        device: List<Contact>,
-        query: String
-    ): List<ContactListItem> = withContext(Dispatchers.Default) {
-        val shouldFilter = query.isNotBlank()
-        val lowerQuery = query.lowercase()
-
-        fun List<Contact>.filtered(): List<Contact> {
-            return if (shouldFilter) {
-                this.filter {
-                    it.name.lowercase().contains(lowerQuery) ||
-                            it.phoneNumber.lowercase().contains(lowerQuery)
-                }
-            } else this
-        }
-
-        // Run filtering & transformation for all sections in parallel
-        val recentDeferred = async {
-            val filtered = recent.filtered()
-            if (filtered.isNotEmpty()) {
-                filtered.map { ContactListItem.ContactItem(it) }
-            } else emptyList()
-        }
-
-        val myDeferred = async {
-            val filtered = my.filtered()
-            if (filtered.isNotEmpty()) {
-                filtered.map { ContactListItem.ContactItem(it) }
-            } else emptyList()
-        }
-
-        val deviceDeferred = async {
-            val filtered = device.filtered()
-            if (filtered.isNotEmpty()) {
-                filtered.map { ContactListItem.ContactItem(it) }
-            } else emptyList()
-        }
-
-        // Gather all in order
-        val result = mutableListOf<ContactListItem>()
-        result += recentDeferred.await()
-        result += myDeferred.await()
-        result += deviceDeferred.await()
-        result += ContactListItem.Disclosure // always add disclosure at the end
-        result
-    }
-
     fun showListScreen() {
         _isListScreenVisible.value = true
     }
@@ -242,40 +230,61 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         _isListScreenVisible.value = false
     }
 
-    fun loadMoreDeviceContacts() {
-        if (isLoading || allLoaded) return
+//    fun checkNextDeviceContactStatusPage() {
+//        if (isCheckingStatus) return
+//
+//        val all = _deviceContacts.value
+//        val unverified = all
+//            .drop(statusCheckOffset)
+//            .filter {
+//                it.status.isNullOrEmpty() && alreadyCheckedPhones.add(it.phoneNumber)
+//            }
+//            .take(statusPageSize)
+//
+//        if (unverified.isEmpty()) return
+//
+//        isCheckingStatus = true
+//
+//        updateContactStatusInBackground(unverified) {
+//            statusCheckOffset += unverified.size
+//            isCheckingStatus = false
+//        }
+//    }
 
-        _shouldScrollToTop.value = false
-        isLoading = true
-
-        viewModelScope.launch {
-            val deviceContacts = withContext(Dispatchers.IO) {
-                repository.fetchDeviceContacts(currentOffset, pageSize)
-            }
-
-            if (deviceContacts.isEmpty()) {
-                allLoaded = true
-            } else {
-                // ✅ Check contact status before updating state
-                withContext(Dispatchers.IO) {
-                    repository.checkDeviceContactStatus(deviceContacts)
-                }
-
-                _deviceContacts.update { current ->
-                    current + deviceContacts
-                }
-
-                _deviceActiveContacts.update { current ->
-                    current + deviceContacts.filter { it.status == "ACTIVE" }
-                }
-
-                currentOffset += deviceContacts.size
-                allLoaded = deviceContacts.size < pageSize
-            }
-
-            isLoading = false
-        }
-    }
+//    fun loadMoreDeviceContacts() {
+//        if (isLoading || allLoaded || isSearchMode.value) return
+//
+//        _shouldScrollToTop.value = false
+//        isLoading = true
+//
+//        viewModelScope.launch {
+//            val deviceContacts = withContext(Dispatchers.IO) {
+//                repository.fetchDeviceContacts(currentOffset, pageSize)
+//            }
+//
+//            if (deviceContacts.isEmpty()) {
+//                allLoaded = true
+//            } else {
+//                // ✅ Check contact status before updating state
+//                withContext(Dispatchers.IO) {
+//                    repository.checkDeviceContactStatus(deviceContacts)
+//                }
+//
+//                _deviceContacts.update { current ->
+//                    current + deviceContacts
+//                }
+//
+//                _deviceActiveContacts.update { current ->
+//                    current + deviceContacts.filter { it.status == "ACTIVE" }
+//                }
+//
+//                currentOffset += deviceContacts.size
+//                allLoaded = deviceContacts.size < pageSize
+//            }
+//
+//            isLoading = false
+//        }
+//    }
 
 }
 

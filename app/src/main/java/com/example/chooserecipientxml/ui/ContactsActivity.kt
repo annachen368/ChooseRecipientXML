@@ -1,14 +1,9 @@
 package com.example.chooserecipientxml.ui
 
-import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
-import android.util.Log
 import android.view.View
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
 import android.widget.SearchView
-import androidx.appcompat.R
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
@@ -18,13 +13,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
-import com.example.chooserecipientxml.databinding.ItemContactGridBinding
 import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.viewmodel.ContactViewModel
 import com.example.chooserecipientxml.viewmodel.ContactViewModelFactory
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 class ContactsActivity : AppCompatActivity() {
@@ -80,7 +75,9 @@ class ContactsActivity : AppCompatActivity() {
                     val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
 
                     if (lastVisibleItem >= totalItemCount - 5) {
-                        viewModel.loadMoreDeviceContacts()
+                        // TODO: check
+//                        viewModel.loadMoreDeviceContacts()
+                        viewModel.checkNextDeviceContactStatusPage()
                     }
                 }
             }
@@ -92,9 +89,12 @@ class ContactsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    combine(viewModel.contactsForUI, viewModel.shouldScrollToTop) { items, shouldScroll ->
+                    combine(
+                        viewModel.displayList,
+                        viewModel.shouldScrollToTop
+                    ) { items, shouldScroll ->
                         items to shouldScroll
-                    }.collect { (items, shouldScroll) ->
+                    }.distinctUntilChanged().collectLatest { (items, shouldScroll) ->
                         adapter.submitList(items) {
                             if (shouldScroll) {
                                 binding.recyclerView.scrollToPosition(0)
@@ -128,7 +128,6 @@ class ContactsActivity : AppCompatActivity() {
 
         binding.searchView2.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                viewModel.setSearchQuery(query.orEmpty())
                 return true
             }
 

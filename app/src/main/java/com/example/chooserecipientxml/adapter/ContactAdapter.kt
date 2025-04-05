@@ -91,7 +91,8 @@ class ContactListItemDiffCallback : DiffUtil.ItemCallback<ContactListItem>() {
             oldItem is ContactListItem.Header && newItem is ContactListItem.Header ->
                 oldItem.title == newItem.title
             oldItem is ContactListItem.ContactItem && newItem is ContactListItem.ContactItem ->
-                oldItem.contact.id == newItem.contact.id
+                // TODO: check if oldItem.contact.id == newItem.contact.id can be used
+                oldItem.contact.name == newItem.contact.name && oldItem.contact.phoneNumber == newItem.contact.phoneNumber
             oldItem is ContactListItem.Disclosure && newItem is ContactListItem.Disclosure ->
                 true // Only one disclosure, treat as same
             else -> false
