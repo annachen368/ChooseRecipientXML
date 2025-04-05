@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
@@ -50,9 +51,8 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     // Search mode
     private val _searchServerContacts = MutableStateFlow<List<Contact>>(emptyList())
     private val _searchDeviceContacts = MutableStateFlow<List<Contact>>(emptyList())
-//    private val _searchResults = MutableStateFlow<List<ContactListItem>>(emptyList())
-//    val searchResults: StateFlow<List<ContactListItem>> = _searchResults.asStateFlow()
     private val _searchQuery = MutableStateFlow("") // Search query input from UI
+    private val _searchRefreshTrigger = MutableStateFlow(0)
     private var searchStatusOffset = 0
     private val searchStatusPageSize = 100
     private var isCheckingSearchStatus = false
@@ -78,19 +78,22 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         _searchQuery.debounce(300L),
         _serverRecentContacts,
         _serverMyContacts,
-        _deviceContacts
-    ) { query, recent, my, device ->
+        _deviceContacts,
+        _searchRefreshTrigger
+    ) { query, recent, my, device, _ ->
         if (query.isBlank()) {
             emptyList()
         } else {
             val matched = (recent + my + device)
                 .filter { it.name.contains(query, ignoreCase = true) }
 
-            cachedSearchMatchedContacts = matched // Keep for status pagination
+            cachedSearchMatchedContacts = matched
             searchStatusOffset = 0
-            checkNextSearchStatusPage() // Start background check
+            checkNextSearchStatusPage()
 
-            matched.map { ContactListItem.ContactItem(it) } + ContactListItem.Disclosure
+            matched.map { contact ->
+                ContactListItem.ContactItem(contact.copy()) // <--- forces new instances
+            } + ContactListItem.Disclosure
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -102,38 +105,6 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     ) { isSearchMode, normalList, searchList ->
         if (isSearchMode) searchList else normalList
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-//    init {
-//        viewModelScope.launch {
-//            _searchQuery
-//                .debounce(300L)
-//                .mapLatest { query ->
-//                    _shouldScrollToTop.value = true
-//                    if (query.isBlank()) {
-//                        emptyList()
-//                    } else {
-//                        searchContacts(query)
-//                    }
-//                }
-//                .collect { results ->
-//                    _searchResults.value = results
-//                }
-//        }
-//    }
-//    private suspend fun searchContacts(query: String): List<ContactListItem> {
-//        val mergedList = _serverRecentContacts.value +
-//                _serverMyContacts.value +
-//                _deviceContacts.value
-//
-//        val matched = mergedList.filter { it.name.contains(query, ignoreCase = true) }
-//
-//        // Cache the matched list for later pagination
-//        cachedSearchMatchedContacts = matched
-//        searchStatusOffset = 0 // Reset offset for new search
-//        checkNextSearchStatusPage() // Trigger first page check
-//
-//        return matched.map { ContactListItem.ContactItem(it) } + ContactListItem.Disclosure
-//    }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -162,7 +133,12 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         updateContactStatusInBackground(batch) {
             searchStatusOffset += batch.size
             isCheckingSearchStatus = false
+            refreshSearch() // triggers recompute
         }
+    }
+
+    private fun refreshSearch() {
+        _searchRefreshTrigger.update { it + 1 }
     }
 
     private fun updateContactStatusInBackground(
@@ -175,7 +151,12 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
             withContext(Dispatchers.Main) {
                 _deviceContacts.update { current ->
                     current.map { existing ->
-                        contacts.find { it.id == existing.id } ?: existing
+                        val updated = contacts.find { it.id == existing.id }
+                        if (updated != null && existing.status != updated.status) {
+                            existing.copy(status = updated.status)
+                        } else {
+                            existing
+                        }
                     }
                 }
 
