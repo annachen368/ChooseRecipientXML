@@ -65,24 +65,18 @@ class ContactsActivity : AppCompatActivity() {
         observeContacts()
         setupSearchView()
 
-        // Start the loop after setting up RecyclerView
-//        binding.recyclerView.post(autoLoadRunnable)
         binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                if (dy > 0) {
-                    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                    val totalItemCount = layoutManager.itemCount
-                    val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val lastVisible = layoutManager.findLastVisibleItemPosition()
+                val totalItemCount = layoutManager.itemCount
 
-                    if (lastVisibleItem >= totalItemCount - 5) {
-                        // TODO: check
-//                        viewModel.loadMoreDeviceContacts()
-                        viewModel.checkNextDeviceContactStatusPage()
-                    }
+                // When user scrolls near the bottom and we're in search mode
+                if (viewModel.isSearchMode.value && lastVisible >= totalItemCount - 10) {
+                    viewModel.checkNextSearchStatusPage()
                 }
             }
         })
-
     }
 
     private fun observeContacts() {
