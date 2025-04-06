@@ -92,6 +92,7 @@ class ContactsActivity : AppCompatActivity() {
                         adapter.submitList(items) {
                             if (shouldScroll) {
                                 binding.recyclerView.scrollToPosition(0)
+                                viewModel.resetScrollFlag() // <- reset here
                             }
                         }
                     }

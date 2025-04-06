@@ -107,7 +107,12 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setSearchQuery(query: String) {
+        _shouldScrollToTop.value = true
         _searchQuery.value = query
+    }
+
+    fun resetScrollFlag() {
+        _shouldScrollToTop.value = false
     }
 
     fun checkNextSearchStatusPage() {
