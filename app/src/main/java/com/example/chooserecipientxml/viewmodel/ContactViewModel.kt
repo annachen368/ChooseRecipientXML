@@ -20,6 +20,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * 1. search mode is almost complete, normal mode is not.
+ * 2. search mode refresh status is still not working. If you are in the middle of search and
+ *    device contact status is unknown, it will not be updated unless you scroll to the bottom.
+ * 3. thinking about using a different approach for search mode. Currently, it is using the same
+ *    contact source as normal mode. This is not ideal because it will cause the status pagination
+ *    to be hard to manage. I think we might need to create a separate source for search mode.
+ */
 class ContactViewModel(private val repository: ContactRepository) : ViewModel() {
 
     // Normal mode
