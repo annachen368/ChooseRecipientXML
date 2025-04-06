@@ -15,6 +15,7 @@ import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
 import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
+import com.example.chooserecipientxml.viewmodel.ContactListItem
 import com.example.chooserecipientxml.viewmodel.ContactViewModel
 import com.example.chooserecipientxml.viewmodel.ContactViewModelFactory
 import kotlinx.coroutines.flow.collectLatest
@@ -67,16 +68,25 @@ class ContactsActivity : AppCompatActivity() {
 
         binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
+                val firstVisible = layoutManager.findFirstVisibleItemPosition()
                 val lastVisible = layoutManager.findLastVisibleItemPosition()
-                val totalItemCount = layoutManager.itemCount
 
-                // When user scrolls near the bottom and we're in search mode
-                if (viewModel.isSearchMode.value && lastVisible >= totalItemCount - 10) {
-                    viewModel.checkNextSearchStatusPage()
+                if (!viewModel.isSearchMode.value) return
+
+                // To check if any of the currently visible contacts have an unknown status in the RecyclerView,
+                for (i in firstVisible..lastVisible) {
+                    val item = adapter.currentList.getOrNull(i)
+                    if (item is ContactListItem.ContactItem) {
+                        val contact = item.contact
+                        if (viewModel.isSearchMode.value) {
+                            viewModel.checkVisibleSearchStatus(firstVisible, lastVisible + 1)
+                        }
+                    }
                 }
             }
         })
+
     }
 
     private fun observeContacts() {
@@ -92,7 +102,16 @@ class ContactsActivity : AppCompatActivity() {
                         adapter.submitList(items) {
                             if (shouldScroll) {
                                 binding.recyclerView.scrollToPosition(0)
-                                viewModel.resetScrollFlag() // <- reset here
+                            }
+                        }
+
+                        // ✅ Check visible range for status update after list is applied
+                        binding.recyclerView.post {
+                            val layoutManager = binding.recyclerView.layoutManager as LinearLayoutManager
+                            val firstVisible = layoutManager.findFirstVisibleItemPosition()
+                            val lastVisible = layoutManager.findLastVisibleItemPosition()
+                            if (viewModel.isSearchMode.value) {
+                                viewModel.checkVisibleSearchStatus(firstVisible, lastVisible + 200) // preload 200 items
                             }
                         }
                     }
