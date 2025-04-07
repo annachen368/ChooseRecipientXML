@@ -1,6 +1,7 @@
 package com.example.chooserecipientxml.ui
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.SearchView
 import androidx.appcompat.app.AppCompatActivity
@@ -18,6 +19,7 @@ import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.viewmodel.ContactListItem
 import com.example.chooserecipientxml.viewmodel.ContactViewModel
 import com.example.chooserecipientxml.viewmodel.ContactViewModelFactory
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -58,6 +60,8 @@ class ContactsActivity : AppCompatActivity() {
                 //In your scroll listener, it’s possible to call checkVisibleSearchStatus()
                 // multiple times per frame. Instead, debounce it slightly using Handler.postDelayed
                 // or store a flag
+                if (!viewModel.isSearchMode.value) return
+
                 val now = System.currentTimeMillis()
                 if (now - lastStatusCheckTime < statusCheckDebounceMs) return
                 lastStatusCheckTime = now
@@ -66,14 +70,12 @@ class ContactsActivity : AppCompatActivity() {
                 val firstVisible = layoutManager.findFirstVisibleItemPosition()
                 val lastVisible = layoutManager.findLastVisibleItemPosition()
 
-                if (!viewModel.isSearchMode.value) return
-
                 // To check if any of the currently visible contacts have an unknown status in the RecyclerView,
                 for (i in firstVisible..lastVisible) {
                     val item = adapter.currentList.getOrNull(i)
                     if (item is ContactListItem.ContactItem) {
                         val contact = item.contact
-                        if (viewModel.isSearchMode.value && contact.status == null) {
+                        if (contact.status == null) {
                             viewModel.checkVisibleSearchStatus()
                             // can't use for normal mode as we can't see the unknown status contacts
                             break
@@ -104,6 +106,26 @@ class ContactsActivity : AppCompatActivity() {
                 }
 
                 launch {
+                    while (true) {
+                        delay(1000L) // Check every second
+
+                        if (viewModel.isSearchMode.value) continue // only check in normal mode
+
+                        val layoutManager =
+                            binding.recyclerView.layoutManager as? LinearLayoutManager ?: continue
+                        val totalCount = layoutManager.itemCount
+                        val lastVisible = layoutManager.findLastVisibleItemPosition()
+
+                        // Trigger status check if user is near the bottom of the list
+                        if (lastVisible != -1 && lastVisible >= totalCount - 2) {
+                            Log.d("ThreadCheck", "lastVisible: $lastVisible, totalCount: $totalCount")
+                            viewModel.checkVisibleStatus()
+                        }
+                    }
+                }
+
+                launch {
+                    // Might not need to listen to this
                     viewModel.topRecentServiceContacts.collect { contacts ->
                         binding.contactGrid.removeAllViews()
 
