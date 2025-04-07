@@ -16,12 +16,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -102,15 +99,27 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
             _searchQuery
                 .filter { it.isNotBlank() }
+                .debounce(200L)
+                .distinctUntilChanged()
                 .collectLatest { query ->
                     if (query == lastQuery) return@collectLatest
                     lastQuery = query
 
+                    _shouldScrollToTop.value = true
+                    performSearch(query)
+
                     debounceJob?.cancel()
                     debounceJob = launch {
-                        delay(300L)
-                        _shouldScrollToTop.value = true
-                        performSearch(query)
+                        delay(1000L)
+
+                        // Optional: check if this is still the latest query
+                        if (query == lastQuery) {
+                            Log.d("ThreadCheck", "debounceJob: query=$query")
+                            searchStatusOffset = 0 // reset paging for new results
+                            checkVisibleSearchStatus()
+                        } else {
+                            Log.d("ThreadCheck", "Not matched - debounceJob: query=$query, lastQuery=$lastQuery")
+                        }
                     }
                 }
         }
@@ -133,16 +142,8 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
         val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
 
-        // Reset search status offset
-        searchStatusOffset = 0
-
         val results = matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
         _searchResults.value = results
-
-        // Auto-trigger status check if needed
-        if (_searchDeviceContacts.any { it.status.isNullOrEmpty() }) {
-            checkVisibleSearchStatus()
-        }
     }
 
     fun checkVisibleSearchStatus() {
@@ -190,6 +191,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     }
 
     private suspend fun updateContactStatusInBackground(contacts: List<Contact>) {
+        Log.d("ThreadCheck", "updateContactStatusInBackground: ${Thread.currentThread().name}. ${contacts.size} contacts")
         // Run network call on IO dispatcher
         withContext(Dispatchers.IO) {
             repository.checkDeviceContactStatus(contacts)
