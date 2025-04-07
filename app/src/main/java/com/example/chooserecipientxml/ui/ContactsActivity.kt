@@ -1,6 +1,5 @@
 package com.example.chooserecipientxml.ui
 
-import android.graphics.Rect
 import android.os.Bundle
 import android.view.View
 import android.widget.SearchView
@@ -76,6 +75,7 @@ class ContactsActivity : AppCompatActivity() {
                         val contact = item.contact
                         if (viewModel.isSearchMode.value && contact.status == null) {
                             viewModel.checkVisibleSearchStatus()
+                            // can't use for normal mode as we can't see the unknown status contacts
                             break
                         }
                     }

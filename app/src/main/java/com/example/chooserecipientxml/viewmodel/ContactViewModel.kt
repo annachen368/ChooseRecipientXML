@@ -40,24 +40,28 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     private val _serverRecentContacts = MutableStateFlow<List<Contact>>(emptyList())
     private val _serverMyContacts = MutableStateFlow<List<Contact>>(emptyList())
     private val _deviceContacts = MutableStateFlow<List<Contact>>(emptyList())
-    private val _shouldScrollToTop = MutableStateFlow(false)
+    private val _shouldRefreshActiveDeviceContacts = MutableStateFlow(0)
+//    private val _results = MutableStateFlow<List<ContactListItem>>(emptyList())
+//    val results: StateFlow<List<ContactListItem>> = _results.asStateFlow()
+
     private val pageSize = 200
-    private var statusCheckOffset = 200 // Start after first batch
-    private val statusPageSize = 100
-    private val alreadyCheckedPhones = mutableSetOf<String>()
-    private var isCheckingStatus = false
+    private var statusOffset = 0 // Start after first batch
+    private val statusMutex = Mutex()
 
     // Visibility state for list screen
     private val _isListScreenVisible = MutableStateFlow(false)
     val isListScreenVisible: StateFlow<Boolean> = _isListScreenVisible.asStateFlow()
 
     // Global variables
+    private val _shouldScrollToTop = MutableStateFlow(false)
     val shouldScrollToTop: StateFlow<Boolean> = _shouldScrollToTop
 
     // Search mode
     private var _searchServerContacts = listOf<Contact>()
     private var _searchDeviceContacts = listOf<Contact>()
     private val _searchQuery = MutableStateFlow("") // Search query input from UI
+    private val _searchResults = MutableStateFlow<List<ContactListItem>>(emptyList())
+    val searchResults: StateFlow<List<ContactListItem>> = _searchResults.asStateFlow()
     private var searchStatusOffset = 0
     private val searchStatusPageSize = 200
     private val searchStatusMutex = Mutex()
@@ -66,23 +70,21 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         .map { it.isNotBlank() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val contactsForUI = combine(
-        _serverRecentContacts,
-        _serverMyContacts,
-        _deviceContacts
-    ) { recent, my, device ->
-        val active = device.filter { it.status == "ACTIVE" }
-        buildContactList(recent, my, active)
-    }
-
     val topRecentServiceContacts: StateFlow<List<Contact>> = _serverRecentContacts
         .map { it.take(6) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // ================================= Search mode ============================================
-    private val _searchResults = MutableStateFlow<List<ContactListItem>>(emptyList())
-    val searchResults: StateFlow<List<ContactListItem>> = _searchResults.asStateFlow()
+    val contactsForUI = combine(
+        _serverRecentContacts,
+        _serverMyContacts,
+        _deviceContacts,
+        _shouldRefreshActiveDeviceContacts
+    ) { recent, my, device, _ ->
+        val active = device.filter { it.status == "ACTIVE" }
+        buildContactList(recent, my, active)
+    }
 
+    // ================================= Search mode ============================================
     // Final list to be displayed in RecyclerView
     val displayList = combine(
         isSearchMode,
@@ -238,20 +240,48 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
             val deviceContacts = withContext(Dispatchers.IO) {
                 repository.fetchAllDeviceContacts()
             }
-
             _deviceContacts.value = deviceContacts
+            checkVisibleStatus()
+        }
+    }
 
-            val firstBatch = deviceContacts.take(pageSize)
-
-            // Replace first 200 with ones that include status
-            withContext(Dispatchers.IO) {
-                repository.checkDeviceContactStatus(firstBatch)
+    fun checkVisibleStatus() {
+        viewModelScope.launch {
+            // Try to acquire the lock
+            if (!statusMutex.tryLock()) {
+                Log.d("ThreadCheck", "🔒 normal - Already checking, skipping this run")
+                return@launch
             }
 
-            // Now firstBatch has updated statuses in-place
-            val updatedList = firstBatch + deviceContacts.drop(pageSize)
+            try {
+                // Skip if offset is out of bounds
+                if (statusOffset >= _deviceContacts.value.size) return@launch
 
-            _deviceContacts.value = updatedList
+                val startIndex = statusOffset
+                val endIndex = (startIndex + searchStatusPageSize).coerceAtMost(_deviceContacts.value.size)
+
+                // Prevent invalid subList crash
+                if (startIndex >= endIndex) return@launch
+
+                val visibleContacts = _deviceContacts.value.subList(startIndex, endIndex)
+                val batch = visibleContacts.filter { it.status.isNullOrEmpty() }
+
+                // Move offset forward for next batch
+                statusOffset = endIndex
+
+                if (batch.isEmpty()) return@launch
+
+                Log.d("ThreadCheck", "checkVisibleStatus: batch size=${batch.size}, start=$startIndex, end=$endIndex")
+
+                // Now call suspending function
+                updateContactStatusInBackground(batch)
+
+                _shouldScrollToTop.value = false
+                _shouldRefreshActiveDeviceContacts.value += 1
+            } finally {
+                // Always unlock after completion
+                statusMutex.unlock()
+            }
         }
     }
 
