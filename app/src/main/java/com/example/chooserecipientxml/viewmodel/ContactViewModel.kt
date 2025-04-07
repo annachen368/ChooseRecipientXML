@@ -222,8 +222,9 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
                 repository.fetchServiceContacts()
             }
 
-            val recent = serviceContacts.filter { it.level != null }
-            val my = serviceContacts.filter { it.level == null }
+            // TODO: check if there is a chance to have more than 6 recent contacts and do i need to sort by name as well
+            val recent = serviceContacts.filter { it.level != null }.sortedBy { it.level }
+            val my = serviceContacts.filter { it.level == null }.sortedBy { it.name }
 
             _serverRecentContacts.value = recent
             _serverMyContacts.value = my
