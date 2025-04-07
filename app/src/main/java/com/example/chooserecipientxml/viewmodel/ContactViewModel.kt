@@ -14,11 +14,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 /**
@@ -61,13 +63,15 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     // Search mode
 //    private val _searchServerContacts = MutableStateFlow<List<Contact>>(emptyList())
 //    private val _searchDeviceContacts = MutableStateFlow<List<Contact>>(emptyList())
+    private var _searchServerContacts = listOf<Contact>()
+    private var _searchDeviceContacts = listOf<Contact>()
     private val _searchQuery = MutableStateFlow("") // Search query input from UI
     private val _searchRefreshTrigger = MutableStateFlow(0)
     private var searchStatusOffset = 0
     private val searchStatusPageSize = 200
     private var isCheckingSearchStatus = false
-    private var cachedSearchMatchedContacts: List<Contact> = emptyList()
     private var lastSearchStatusCheckTime = 0L
+    private val searchStatusMutex = Mutex()
 
     val isSearchMode: StateFlow<Boolean> = _searchQuery
         .map { it.isNotBlank() }
@@ -124,6 +128,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         viewModelScope.launch {
             _searchQuery
                 .debounce(300L)
+                .filter { query -> query.isNotBlank() } // ✅ ignore empty or blank queries
                 .mapLatest { query ->
                     _shouldScrollToTop.value = true
                     performSearch(query)
@@ -135,7 +140,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     fun setSearchQuery(query: String) {
         _shouldScrollToTop.value = true
         _searchQuery.value = query
-        searchStatusOffset = 0 // ← only here
+//        searchStatusOffset = 0 // ← only here
     }
 
     fun resetScrollFlag() {
@@ -144,54 +149,111 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
     // When user types, filter and separate service vs device contacts
     fun performSearch(query: String) {
-        val server = _serverRecentContacts.value + _serverMyContacts.value
-        val device = _deviceContacts.value
+        _searchServerContacts = (_serverRecentContacts.value + _serverMyContacts.value).filter {
+            it.name.contains(query, ignoreCase = true)
+        }
+        _searchDeviceContacts = _deviceContacts.value.filter {
+            it.name.contains(query, ignoreCase = true)
+        }
 
-        val matched = (server + device)
-            .filter { it.name.contains(query, ignoreCase = true) }
-            .sortedBy { it.name }
+        val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
 
-        cachedSearchMatchedContacts = matched
+        // Reset search status offset
+        searchStatusOffset = 0
 
         val results = matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
         _searchResults.value = results
-
-//        checkVisibleSearchStatus() // trigger background check only once per query input
     }
 
-    fun checkVisibleSearchStatus(startIndex: Int, endIndex: Int) {
-        if (isCheckingSearchStatus) return
-
-        isCheckingSearchStatus = true
-
-        val visibleContacts = cachedSearchMatchedContacts
-            .subList(startIndex.coerceAtLeast(0), endIndex.coerceAtMost(cachedSearchMatchedContacts.size))
-
-        val batch = visibleContacts
-            .filter { contact ->
-                contact.source?.toString() == "DEVICE" &&
-                        contact.status.isNullOrEmpty() &&
-                        checkedContacts.add(contact.phoneNumber)
+    fun checkVisibleSearchStatus() {
+        viewModelScope.launch {
+            // Try to acquire the lock
+            if (!searchStatusMutex.tryLock()) {
+                Log.d("ContactViewModel", "🔒 Already checking, skipping this run")
+                return@launch
             }
-            .take(searchStatusPageSize)
 
-        if (batch.isEmpty()) return
-        Log.d("ContactViewModel", "checkVisibleSearchStatus: batch size=${batch.size}, offset=$searchStatusOffset")
+            try {
+                // Skip if offset is out of bounds
+                if (searchStatusOffset >= _searchDeviceContacts.size) return@launch
 
+                // Set checked contact statuses to ACTIVE
+                _searchDeviceContacts.forEach { contact ->
+                    if (contact.phoneNumber in checkedContacts) {
+                        contact.status = "ACTIVE"
+                    }
+                }
 
-        updateContactStatusInBackground(batch) {
-            // This doesn't need offset tracking, since it's based on visible range
-            isCheckingSearchStatus = false
-            _shouldScrollToTop.value = false
-//            refreshSearch()
-            performSearch(_searchQuery.value) // Refresh the UI
+                val startIndex = searchStatusOffset
+                val endIndex = (startIndex + searchStatusPageSize).coerceAtMost(_searchDeviceContacts.size)
 
-//            _searchResults.update { current ->
-//                val updatedMatched = cachedSearchMatchedContacts.map { ContactListItem.ContactItem(it.copy()) }
-//                updatedMatched + ContactListItem.Disclosure
-//            }
+                // Prevent invalid subList crash
+                if (startIndex >= endIndex) return@launch
+
+                val visibleContacts = _searchDeviceContacts.subList(startIndex, endIndex)
+                val batch = visibleContacts.filter { it.status.isNullOrEmpty() }
+
+                // Move offset forward for next batch
+                searchStatusOffset = endIndex
+
+                if (batch.isEmpty()) return@launch
+
+                Log.d("ContactViewModel", "checkVisibleSearchStatus: batch size=${batch.size}, start=$startIndex, end=$endIndex")
+
+                // Now call suspending function
+                updateContactStatusInBackground(batch)
+
+                _shouldScrollToTop.value = false
+
+                val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
+                val results = matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
+
+                _searchResults.value = results
+            } finally {
+                // Always unlock after completion
+                searchStatusMutex.unlock()
+            }
         }
     }
+
+//    fun checkVisibleSearchStatus() {
+//        if (isCheckingSearchStatus) return
+//        isCheckingSearchStatus = true
+//
+//        // Update _searchDeviceContacts so that any contact whose phone is in checkedContacts
+//        // gets its status set to ACTIVE
+//        _searchDeviceContacts.forEach { contact ->
+//            if (contact.phoneNumber in checkedContacts) {
+//                contact.status = "ACTIVE"
+//            }
+//        }
+//
+//        val visibleContacts = _searchDeviceContacts
+//            .subList(searchStatusOffset, (searchStatusOffset + searchStatusPageSize).coerceAtMost(_searchDeviceContacts.size))
+//
+//        val batch = visibleContacts.filter { contact -> contact.status.isNullOrEmpty() }
+//
+//        // Always move the offset
+//        searchStatusOffset += searchStatusPageSize
+//
+//        if (batch.isEmpty()) {
+//            isCheckingSearchStatus = false
+//            return
+//        }
+//        Log.d("ContactViewModel", "checkVisibleSearchStatus: batch size=${batch.size}, searchStatusOffset=$searchStatusOffset, end=${(searchStatusOffset + searchStatusPageSize).coerceAtMost(_searchDeviceContacts.size)}")
+//
+//        updateContactStatusInBackground(batch) {
+//            // This doesn't need offset tracking, since it's based on visible range
+//            _shouldScrollToTop.value = false
+//
+//            // Update UI
+//            val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
+//            val results = matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
+//            isCheckingSearchStatus = false
+//            _searchResults.value = results
+////            searchStatusOffset += searchStatusPageSize
+//        }
+//    }
 
 //    fun checkNextSearchStatusPage() {
 //        if (isCheckingSearchStatus || searchStatusOffset >= cachedSearchMatchedContacts.size) return
@@ -235,29 +297,48 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         _searchRefreshTrigger.update { it + 1 }
     }
 
-    private fun updateContactStatusInBackground(
-        contacts: List<Contact>,
-        onComplete: (() -> Unit)? = null
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
+    private suspend fun updateContactStatusInBackground(contacts: List<Contact>) {
+        // Run network call on IO dispatcher
+        withContext(Dispatchers.IO) {
             repository.checkDeviceContactStatus(contacts)
+        }
 
-            withContext(Dispatchers.Main) {
-                _deviceContacts.update { current ->
-                    current.map { existing ->
-                        val updated = contacts.find { it.id == existing.id }
-                        if (updated != null && existing.status != updated.status) {
-                            existing.copy(status = updated.status)
-                        } else {
-                            existing
-                        }
-                    }
+        // Safely update device contacts on the main thread
+        _deviceContacts.update { current ->
+            current.map { existing ->
+                val updated = contacts.find { it.id == existing.id }
+                if (updated != null && existing.status != updated.status) {
+                    existing.copy(status = updated.status)
+                } else {
+                    existing
                 }
-
-                onComplete?.invoke()
             }
         }
     }
+
+//    private fun updateContactStatusInBackground(
+//        contacts: List<Contact>,
+//        onComplete: (() -> Unit)? = null
+//    ) {
+//        viewModelScope.launch(Dispatchers.IO) {
+//            repository.checkDeviceContactStatus(contacts)
+//
+//            withContext(Dispatchers.Main) {
+//                _deviceContacts.update { current ->
+//                    current.map { existing ->
+//                        val updated = contacts.find { it.id == existing.id }
+//                        if (updated != null && existing.status != updated.status) {
+//                            existing.copy(status = updated.status)
+//                        } else {
+//                            existing
+//                        }
+//                    }
+//                }
+//
+//                onComplete?.invoke()
+//            }
+//        }
+//    }
 
     // ================================= Normal mode ============================================
 
@@ -337,27 +418,27 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         _isListScreenVisible.value = false
     }
 
-    fun checkNextDeviceContactStatusPage() {
-        if (isCheckingStatus) return
-
-        // TODO: don't know how to verify
-        val all = _deviceContacts.value
-        val unverified = all
-            .drop(statusCheckOffset)
-            .filter {
-                it.status.isNullOrEmpty() && alreadyCheckedPhones.add(it.phoneNumber)
-            }
-            .take(statusPageSize)
-
-        if (unverified.isEmpty()) return
-
-        isCheckingStatus = true
-
-        updateContactStatusInBackground(unverified) {
-            statusCheckOffset += unverified.size
-            isCheckingStatus = false
-        }
-    }
+//    fun checkNextDeviceContactStatusPage() {
+//        if (isCheckingStatus) return
+//
+//        // TODO: don't know how to verify
+//        val all = _deviceContacts.value
+//        val unverified = all
+//            .drop(statusCheckOffset)
+//            .filter {
+//                it.status.isNullOrEmpty() && alreadyCheckedPhones.add(it.phoneNumber)
+//            }
+//            .take(statusPageSize)
+//
+//        if (unverified.isEmpty()) return
+//
+//        isCheckingStatus = true
+//
+//        updateContactStatusInBackground(unverified) {
+//            statusCheckOffset += unverified.size
+//            isCheckingStatus = false
+//        }
+//    }
 }
 
 class ContactViewModelFactory(private val repository: ContactRepository) :
