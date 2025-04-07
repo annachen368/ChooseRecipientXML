@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.repository.ContactRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,8 +17,11 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -97,14 +102,22 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
     init {
         viewModelScope.launch {
+            var lastQuery: String? = null
+            var debounceJob: Job? = null
+
             _searchQuery
-                .debounce(300L)
-                .filter { query -> query.isNotBlank() } // ✅ ignore empty or blank queries
-                .mapLatest { query ->
-                    _shouldScrollToTop.value = true
-                    performSearch(query)
+                .filter { it.isNotBlank() }
+                .collectLatest { query ->
+                    if (query == lastQuery) return@collectLatest
+                    lastQuery = query
+
+                    debounceJob?.cancel()
+                    debounceJob = launch {
+                        delay(300L)
+                        _shouldScrollToTop.value = true
+                        performSearch(query)
+                    }
                 }
-                .collect {}
         }
     }
 
