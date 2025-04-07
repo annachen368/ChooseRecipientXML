@@ -78,6 +78,10 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
         buildContactList(recent, my, active)
     }
 
+    val topRecentServiceContacts: StateFlow<List<Contact>> = _serverRecentContacts
+        .map { it.take(6) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // ================================= Search mode ============================================
     private val _searchResults = MutableStateFlow<List<ContactListItem>>(emptyList())
     val searchResults: StateFlow<List<ContactListItem>> = _searchResults.asStateFlow()

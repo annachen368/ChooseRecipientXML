@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
+import com.example.chooserecipientxml.databinding.ItemContactGridBinding
 import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.viewmodel.ContactListItem
@@ -41,23 +42,6 @@ class ContactsActivity : AppCompatActivity() {
         val factory = ContactViewModelFactory(repository)
 
         viewModel = ViewModelProvider(this, factory)[ContactViewModel::class.java]
-
-//        repeat(5) { index ->
-//            val itemBinding =
-//                ItemContactGridBinding.inflate(layoutInflater, binding.contactGrid, false)
-//
-//            // Set dynamic content
-//            itemBinding.name.text = "Contact $index"
-//            itemBinding.token.text = "Token $index"
-//
-//            // Optional: click handler
-//            itemBinding.root.setOnClickListener {
-//                // Handle click
-//            }
-//
-//            // Add to grid
-//            binding.contactGrid.addView(itemBinding.root)
-//        }
 
         adapter = ContactAdapter(context = this)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
@@ -115,6 +99,42 @@ class ContactsActivity : AppCompatActivity() {
                             if (shouldScroll) {
                                 binding.recyclerView.scrollToPosition(0)
                             }
+                        }
+                    }
+                }
+
+                launch {
+                    viewModel.topRecentServiceContacts.collect { contacts ->
+                        binding.contactGrid.removeAllViews()
+
+                        val columnCount = 3
+                        val maxItems = 6
+                        val visibleCount = contacts.size
+
+                        // Add real items
+                        contacts.forEach { contact ->
+                            val itemBinding = ItemContactGridBinding.inflate(
+                                layoutInflater, binding.contactGrid, false
+                            )
+
+                            itemBinding.name.text = contact.name
+                            itemBinding.token.text = contact.phoneNumber
+
+                            itemBinding.root.setOnClickListener {
+                                // Handle click
+                            }
+
+                            binding.contactGrid.addView(itemBinding.root)
+                        }
+
+                        // Add invisible placeholders to maintain grid structure
+                        val totalToAdd = (columnCount - (visibleCount % columnCount)) % columnCount
+                        repeat(totalToAdd) {
+                            val placeholder = ItemContactGridBinding.inflate(
+                                layoutInflater, binding.contactGrid, false
+                            )
+                            placeholder.root.visibility = View.INVISIBLE
+                            binding.contactGrid.addView(placeholder.root)
                         }
                     }
                 }
