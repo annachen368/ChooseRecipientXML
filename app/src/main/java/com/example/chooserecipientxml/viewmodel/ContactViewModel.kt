@@ -64,7 +64,6 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
     // Global variables
     val shouldScrollToTop: StateFlow<Boolean> = _shouldScrollToTop
-    private val checkedContacts = mutableSetOf<String>()
 
     // Search mode
     private var _searchServerContacts = listOf<Contact>()
