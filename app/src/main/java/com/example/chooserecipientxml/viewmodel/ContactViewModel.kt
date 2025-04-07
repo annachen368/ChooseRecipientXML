@@ -115,6 +115,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
     // When user types, filter and separate service vs device contacts
     fun performSearch(query: String) {
+        Log.d("ThreadCheck", "performSearch: query=$query")
         _searchServerContacts = (_serverRecentContacts.value + _serverMyContacts.value).filter {
             it.name.contains(query, ignoreCase = true)
         }
