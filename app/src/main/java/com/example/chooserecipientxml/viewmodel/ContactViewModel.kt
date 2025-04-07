@@ -55,6 +55,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     // Global variables
     private val _shouldScrollToTop = MutableStateFlow(false)
     val shouldScrollToTop: StateFlow<Boolean> = _shouldScrollToTop
+    val tokenThumbnailMap = mutableMapOf<String, String>()
 
     // Search mode
     private var _searchServerContacts = listOf<Contact>()
@@ -238,7 +239,7 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     fun loadDeviceContacts() {
         viewModelScope.launch {
             val deviceContacts = withContext(Dispatchers.IO) {
-                repository.fetchAllDeviceContacts()
+                repository.fetchAllDeviceContacts(tokenThumbnailMap)
             }
             _deviceContacts.value = deviceContacts
             checkVisibleStatus()

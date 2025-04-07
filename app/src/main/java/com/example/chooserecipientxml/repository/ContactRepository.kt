@@ -100,10 +100,13 @@ class ContactRepository(private val context: Context, private val apiService: Ap
         return contacts
     }
 
-    suspend fun fetchAllDeviceContacts(): List<Contact> {
+    suspend fun fetchAllDeviceContacts(tokenThumbnailMap: MutableMap<String, String>): List<Contact> {
         Log.d("ThreadCheck", "FetchAllDeviceContacts start ${Thread.currentThread().name}")
         val contacts = mutableListOf<Contact>()
         val contentResolver = context.contentResolver
+
+        // Step 1: Map contact names to contactId and thumbnail URI
+//        val tokenThumbnailMap = mutableMapOf<String, String>()
 
         val selection = "${ContactsContract.Data.MIMETYPE}=? OR ${ContactsContract.Data.MIMETYPE}=?"
         val selectionArgs = arrayOf(
@@ -115,7 +118,8 @@ class ContactRepository(private val context: Context, private val apiService: Ap
             ContactsContract.Data.DISPLAY_NAME,
             ContactsContract.Data.MIMETYPE,
             ContactsContract.CommonDataKinds.Phone.NUMBER,
-            ContactsContract.CommonDataKinds.Email.ADDRESS
+            ContactsContract.CommonDataKinds.Email.ADDRESS,
+            ContactsContract.Contacts.PHOTO_THUMBNAIL_URI
         )
 
         val cursor = contentResolver.query(
@@ -133,10 +137,12 @@ class ContactRepository(private val context: Context, private val apiService: Ap
             val mimeTypeIndex = it.getColumnIndex(ContactsContract.Data.MIMETYPE)
             val phoneIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
             val emailIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS)
+            val photoIndex = it.getColumnIndex(ContactsContract.Contacts.PHOTO_THUMBNAIL_URI)
 
             while (it.moveToNext()) {
                 val name = it.getString(nameIndex)
                 val mimeType = it.getString(mimeTypeIndex)
+                val thumbnail = it.getString(photoIndex)
                 val value = when (mimeType) {
                     ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE -> {
                         normalizePhoneNumber(it.getString(phoneIndex))
@@ -148,6 +154,10 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                 }
 
                 if (value != null) {
+                    // TODO: check if different person with same token has different thumbnail??
+                    thumbnail?.let { photo ->
+                        tokenThumbnailMap[value] = photo
+                    }
                     if (contactMap[name] == null) {
                         contactMap[name] = mutableSetOf()
                     }
@@ -158,7 +168,8 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                                 UUID.randomUUID().toString(),
                                 name,
                                 value,
-                                ContactSource.DEVICE
+                                ContactSource.DEVICE,
+                                thumbnail,
                             )
                         )
                     }

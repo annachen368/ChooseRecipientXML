@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.example.chooserecipientxml.R
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.databinding.ItemDisclosureBinding
 import com.example.chooserecipientxml.databinding.ItemHeaderBinding
@@ -65,6 +67,12 @@ class ContactAdapter(private val context: Context) :
             binding.contactPhone.text = contact.phoneNumber
             binding.contactStatus.text = contact.status ?: "Unknown"
             binding.contactSource.text = contact.source?.name ?: "Unknown"
+            Glide.with(itemView.context)
+                .load(contact.thumbnail) // TODO: check how to load image for service contacts, should i use map here to match token?
+//                .placeholder(R.drawable.placeholder_avatar)
+//                .error(R.drawable.default_avatar)
+                .circleCrop()
+                .into(binding.contactImage)
 
             binding.root.setOnClickListener {
                 val intent = Intent(context, ContactDetailActivity::class.java)
