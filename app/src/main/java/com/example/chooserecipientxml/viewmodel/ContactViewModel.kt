@@ -157,13 +157,6 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
                 // Skip if offset is out of bounds
                 if (searchStatusOffset >= _searchDeviceContacts.size) return@launch
 
-                // Set checked contact statuses to ACTIVE
-                _searchDeviceContacts.forEach { contact ->
-                    if (contact.phoneNumber in checkedContacts) {
-                        contact.status = "ACTIVE"
-                    }
-                }
-
                 val startIndex = searchStatusOffset
                 val endIndex = (startIndex + searchStatusPageSize).coerceAtMost(_searchDeviceContacts.size)
 
