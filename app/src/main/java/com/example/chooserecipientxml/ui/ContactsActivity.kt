@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
 import com.example.chooserecipientxml.databinding.ItemContactGridBinding
@@ -44,7 +45,7 @@ class ContactsActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(this, factory)[ContactViewModel::class.java]
 
-        adapter = ContactAdapter(context = this)
+        adapter = ContactAdapter(context = this, viewModel.tokenThumbnailMap)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.recyclerView.itemAnimator = null
@@ -139,8 +140,16 @@ class ContactsActivity : AppCompatActivity() {
                                 layoutInflater, binding.contactGrid, false
                             )
 
+                            val thumbnailUrl = contact.thumbnail ?: viewModel.tokenThumbnailMap[contact.phoneNumber]
+
                             itemBinding.name.text = contact.name
                             itemBinding.token.text = contact.phoneNumber
+                            Glide.with(this@ContactsActivity)
+                                .load(thumbnailUrl) // TODO: check how to load image for service contacts, should i use map here to match token?
+//                .placeholder(R.drawable.placeholder_avatar)
+//                .error(R.drawable.default_avatar)
+                                .circleCrop()
+                                .into(itemBinding.contactImage)
 
                             itemBinding.root.setOnClickListener {
                                 // Handle click

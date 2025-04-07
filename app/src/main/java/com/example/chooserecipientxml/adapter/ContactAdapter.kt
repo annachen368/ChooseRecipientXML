@@ -16,7 +16,7 @@ import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.ui.ContactDetailActivity
 import com.example.chooserecipientxml.viewmodel.ContactListItem
 
-class ContactAdapter(private val context: Context) :
+class ContactAdapter(private val context: Context, private val tokenThumbnailMap: Map<String, String>) :
     ListAdapter<ContactListItem, RecyclerView.ViewHolder>(ContactListItemDiffCallback()) {
 
     companion object {
@@ -67,8 +67,11 @@ class ContactAdapter(private val context: Context) :
             binding.contactPhone.text = contact.phoneNumber
             binding.contactStatus.text = contact.status ?: "Unknown"
             binding.contactSource.text = contact.source?.name ?: "Unknown"
+
+            val thumbnailUrl = contact.thumbnail ?: tokenThumbnailMap[contact.phoneNumber]
+
             Glide.with(itemView.context)
-                .load(contact.thumbnail) // TODO: check how to load image for service contacts, should i use map here to match token?
+                .load(thumbnailUrl) // TODO: check how to load image for service contacts, should i use map here to match token?
 //                .placeholder(R.drawable.placeholder_avatar)
 //                .error(R.drawable.default_avatar)
                 .circleCrop()

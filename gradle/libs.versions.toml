@@ -9,6 +9,7 @@ appcompat = "1.6.1"
 material = "1.10.0"
 activity = "1.10.1"
 constraintlayout = "2.1.4"
+ksp = "1.9.20-1.0.14" # Replace with the actual KSP version you need
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -23,4 +24,5 @@ androidx-constraintlayout = { group = "androidx.constraintlayout", name = "const
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
