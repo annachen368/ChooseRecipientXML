@@ -54,14 +54,6 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     private val _isListScreenVisible = MutableStateFlow(false)
     val isListScreenVisible: StateFlow<Boolean> = _isListScreenVisible.asStateFlow()
 
-    // Public state exposed to UI
-//    val serverRecentContacts: StateFlow<List<Contact>> = _serverRecentContacts.asStateFlow()
-//    val serverMyContacts: StateFlow<List<Contact>> = _serverMyContacts.asStateFlow()
-//    val deviceContacts: StateFlow<List<Contact>> = _deviceContacts.asStateFlow()
-//    val deviceActiveContacts: StateFlow<List<Contact>> = _deviceActiveContacts.asStateFlow()
-//    val isDeviceContactsLoaded: StateFlow<Boolean> = _isDeviceContactsLoaded.asStateFlow()
-//    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
     // Global variables
     val shouldScrollToTop: StateFlow<Boolean> = _shouldScrollToTop
 
@@ -129,10 +121,10 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     fun performSearch(query: String) {
         Log.d("ThreadCheck", "performSearch: query=$query")
         _searchServerContacts = (_serverRecentContacts.value + _serverMyContacts.value).filter {
-            it.name.contains(query, ignoreCase = true)
+            it.name.contains(query, ignoreCase = true) || it.phoneNumber.contains(query)
         }
         _searchDeviceContacts = _deviceContacts.value.filter {
-            it.name.contains(query, ignoreCase = true)
+            it.name.contains(query, ignoreCase = true) || it.phoneNumber.contains(query)
         }
 
         val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
@@ -142,6 +134,11 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
         val results = matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
         _searchResults.value = results
+
+        // Auto-trigger status check if needed
+        if (_searchDeviceContacts.any { it.status.isNullOrEmpty() }) {
+            checkVisibleSearchStatus()
+        }
     }
 
     fun checkVisibleSearchStatus() {
