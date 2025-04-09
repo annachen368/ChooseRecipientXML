@@ -137,10 +137,10 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     fun performSearch(query: String) {
         Log.d("ThreadCheck", "performSearch: query=$query")
         _searchServerContacts = (_serverRecentContacts.value + _serverMyContacts.value).filter {
-            it.name.contains(query, ignoreCase = true) || it.phoneNumber.contains(query)
+            it.name.contains(query, ignoreCase = true) || it.token.contains(query)
         }
         _searchDeviceContacts = _deviceContacts.value.filter {
-            it.name.contains(query, ignoreCase = true) || it.phoneNumber.contains(query)
+            it.name.contains(query, ignoreCase = true) || it.token.contains(query)
         }
 
         val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }

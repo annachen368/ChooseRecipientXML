@@ -8,7 +8,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.chooserecipientxml.R
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.databinding.ItemDisclosureBinding
 import com.example.chooserecipientxml.databinding.ItemHeaderBinding
@@ -64,11 +63,11 @@ class ContactAdapter(private val context: Context, private val tokenThumbnailMap
         RecyclerView.ViewHolder(binding.root) {
         fun bind(contact: Contact) {
             binding.contactName.text = contact.name
-            binding.contactPhone.text = contact.phoneNumber
+            binding.contactPhone.text = contact.token
             binding.contactStatus.text = contact.status ?: "Unknown"
             binding.contactSource.text = contact.source?.name ?: "Unknown"
 
-            val thumbnailUrl = contact.thumbnail ?: tokenThumbnailMap[contact.phoneNumber]
+            val thumbnailUrl = contact.thumbnail ?: tokenThumbnailMap[contact.token]
 
             Glide.with(itemView.context)
                 .load(thumbnailUrl) // TODO: check how to load image for service contacts, should i use map here to match token?

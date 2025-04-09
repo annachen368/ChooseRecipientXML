@@ -140,10 +140,10 @@ class ContactsActivity : AppCompatActivity() {
                                 layoutInflater, binding.contactGrid, false
                             )
 
-                            val thumbnailUrl = contact.thumbnail ?: viewModel.tokenThumbnailMap[contact.phoneNumber]
+                            val thumbnailUrl = contact.thumbnail ?: viewModel.tokenThumbnailMap[contact.token]
 
                             itemBinding.name.text = contact.name
-                            itemBinding.token.text = contact.phoneNumber
+                            itemBinding.token.text = contact.token
                             Glide.with(this@ContactsActivity)
                                 .load(thumbnailUrl) // TODO: check how to load image for service contacts, should i use map here to match token?
 //                .placeholder(R.drawable.placeholder_avatar)

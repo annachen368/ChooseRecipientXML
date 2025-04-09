@@ -18,7 +18,7 @@ class ContactDetailActivity : AppCompatActivity() {
         val contact = intent.getSerializableExtra("CONTACT") as? Contact
         contact?.let {
             binding.contactName.text = it.name
-            binding.contactNumber.text = it.phoneNumber
+            binding.contactNumber.text = it.token
             // Populate other contact details as needed
         }
     }

@@ -34,7 +34,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                     Contact(
                         id = recipient.recipientId,
                         name = recipient.displayName,
-                        phoneNumber = recipient.token,
+                        token = recipient.token,
                         level = recipient.displayIndicatorList?.firstOrNull()?.level,
                         source = ContactSource.SERVICE
                     )
@@ -262,7 +262,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
             val request = ContactStatusRequest(
                 contactTokens = contacts.map {
                     ContactTokenRequest(
-                        identifier = Identifier("MOBILE", it.phoneNumber)
+                        identifier = Identifier("MOBILE", it.token)
                     )
                 }
             )
@@ -277,7 +277,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                 ) ?: emptyMap()
 
                 contacts.forEach { contact ->
-                    if (statusMap[contact.phoneNumber] == "ACTIVE") {
+                    if (statusMap[contact.token] == "ACTIVE") {
                         contact.status = "ACTIVE"
                     } else {
                         contact.status = "INACTIVE"

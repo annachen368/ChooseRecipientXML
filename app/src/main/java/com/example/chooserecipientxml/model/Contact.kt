@@ -5,7 +5,7 @@ import java.io.Serializable
 data class Contact(
     val id: String,
     val name: String,
-    val phoneNumber: String,
+    val token: String,
     var source: ContactSource? = null,
     var thumbnail: String? = null,
     var status: String? = null,
