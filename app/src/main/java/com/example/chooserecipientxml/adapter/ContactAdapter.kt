@@ -77,9 +77,9 @@ class ContactAdapter(private val context: Context, private val tokenThumbnailMap
                 .into(binding.contactImage)
 
             binding.root.setOnClickListener {
-                val intent = Intent(context, ContactDetailActivity::class.java)
-                intent.putExtra("contact_id", contact.id)
-                context.startActivity(intent)
+//                val intent = Intent(context, ContactDetailActivity::class.java)
+//                intent.putExtra("contact_id", contact.id)
+//                context.startActivity(intent)
             }
         }
     }
@@ -102,9 +102,8 @@ class ContactListItemDiffCallback : DiffUtil.ItemCallback<ContactListItem>() {
                 oldItem.title == newItem.title
             oldItem is ContactListItem.ContactItem && newItem is ContactListItem.ContactItem ->
                 // TODO: check if oldItem.contact.id == newItem.contact.id can be used // Use a unique id
-                oldItem.contact.id == newItem.contact.id // to avoid scrolling to top after update contact status
-//                oldItem.contact == newItem.contact
-//                oldItem.contact.name == newItem.contact.name && oldItem.contact.phoneNumber == newItem.contact.phoneNumber && oldItem.contact.status == newItem.contact.status
+//                oldItem.contact.id == newItem.contact.id // to avoid scrolling to top after update contact status
+                oldItem.contact.token == newItem.contact.token
             oldItem is ContactListItem.Disclosure && newItem is ContactListItem.Disclosure ->
                 true // Only one disclosure, treat as same
             else -> false

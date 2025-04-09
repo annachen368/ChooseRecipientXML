@@ -32,7 +32,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                 Log.d("ThreadCheck", "ServiceContactsRequest end ${Thread.currentThread().name}")
                 response.body()?.recipients?.map { recipient ->
                     Contact(
-                        id = recipient.recipientId,
+//                        id = recipient.recipientId,
                         name = recipient.displayName,
                         token = recipient.token,
                         level = recipient.displayIndicatorList?.firstOrNull()?.level,
@@ -86,7 +86,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                 if (contactMap[name]?.add(normalizedNumber) == true) {
                     contacts.add(
                         Contact(
-                            UUID.randomUUID().toString(),
+//                            UUID.randomUUID().toString(),
                             name,
                             normalizedNumber,
                             ContactSource.DEVICE
@@ -162,14 +162,22 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                         contactMap[name] = mutableSetOf()
                     }
 
+                    // Pre-assign status = INACTIVE for non-US numbers during contact loading
+                    val status = if (mimeType == ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE && value.length != 10) {
+                        "INACTIVE"
+                    } else {
+                        null
+                    }
+
                     if (contactMap[name]?.add(value) == true) {
                         contacts.add(
                             Contact(
-                                UUID.randomUUID().toString(),
-                                name,
-                                value,
-                                ContactSource.DEVICE,
-                                thumbnail,
+//                                UUID.randomUUID().toString(),
+                                name = name,
+                                token = value,
+                                source = ContactSource.DEVICE,
+                                thumbnail = thumbnail,
+                                status = status
                             )
                         )
                     }
@@ -239,7 +247,7 @@ class ContactRepository(private val context: Context, private val apiService: Ap
                     if (contactMap[name]?.add(value) == true) {
                         contacts.add(
                             Contact(
-                                UUID.randomUUID().toString(),
+//                                UUID.randomUUID().toString(),
                                 name,
                                 value,
                                 ContactSource.DEVICE
@@ -296,6 +304,17 @@ class ContactRepository(private val context: Context, private val apiService: Ap
      * ✅ Normalize phone numbers to avoid duplicates with different formats.
      */
     fun normalizePhoneNumber(phoneNumber: String): String {
-        return PhoneNumberUtils.normalizeNumber(phoneNumber).replace(Regex("[^0-9+]"), "")
+        val cleaned = PhoneNumberUtils.normalizeNumber(phoneNumber).replace(Regex("[^0-9+]"), "")
+
+        return when {
+            // +1XXXXXXXXXX → remove +1
+            cleaned.startsWith("+1") && cleaned.length == 12 -> cleaned.substring(2)
+            // 1XXXXXXXXXX → remove 1
+            cleaned.startsWith("1") && cleaned.length == 11 -> cleaned.substring(1)
+            // Already a 10-digit US number
+            cleaned.length == 10 -> cleaned
+            // International or other format — keep as-is
+            else -> cleaned
+        }
     }
 }

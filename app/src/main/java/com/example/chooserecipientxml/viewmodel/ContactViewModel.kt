@@ -8,6 +8,7 @@ import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.repository.ContactRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -121,7 +122,10 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
                             searchStatusOffset = 0 // reset paging for new results
                             checkVisibleSearchStatus()
                         } else {
-                            Log.d("ThreadCheck", "Not matched - debounceJob: query=$query, lastQuery=$lastQuery")
+                            Log.d(
+                                "ThreadCheck",
+                                "Not matched - debounceJob: query=$query, lastQuery=$lastQuery"
+                            )
                         }
                     }
                 }
@@ -145,7 +149,8 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
         val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
 
-        val results = matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
+        val results =
+            matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
         _searchResults.value = results
     }
 
@@ -162,7 +167,8 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
                 if (searchStatusOffset >= _searchDeviceContacts.size) return@launch
 
                 val startIndex = searchStatusOffset
-                val endIndex = (startIndex + searchStatusPageSize).coerceAtMost(_searchDeviceContacts.size)
+                val endIndex =
+                    (startIndex + searchStatusPageSize).coerceAtMost(_searchDeviceContacts.size)
 
                 // Prevent invalid subList crash
                 if (startIndex >= endIndex) return@launch
@@ -175,7 +181,10 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
                 if (batch.isEmpty()) return@launch
 
-                Log.d("ThreadCheck", "checkVisibleSearchStatus: batch size=${batch.size}, start=$startIndex, end=$endIndex")
+                Log.d(
+                    "ThreadCheck",
+                    "checkVisibleSearchStatus: batch size=${batch.size}, start=$startIndex, end=$endIndex"
+                )
 
                 // Now call suspending function
                 updateContactStatusInBackground(batch)
@@ -183,7 +192,8 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
                 _shouldScrollToTop.value = false
 
                 val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
-                val results = matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
+                val results =
+                    matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
 
                 _searchResults.value = results
             } finally {
@@ -194,16 +204,23 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     }
 
     private suspend fun updateContactStatusInBackground(contacts: List<Contact>) {
-        Log.d("ThreadCheck", "updateContactStatusInBackground: ${Thread.currentThread().name}. ${contacts.size} contacts")
+        Log.d(
+            "ThreadCheck",
+            "updateContactStatusInBackground: ${Thread.currentThread().name}. ${contacts.size} contacts"
+        )
         // Run network call on IO dispatcher
         withContext(Dispatchers.IO) {
             repository.checkDeviceContactStatus(contacts)
         }
 
         // Safely update device contacts on the main thread
+        Log.d(
+            "ThreadCheck",
+            "Safely update device contacts on the main thread ${Thread.currentThread().name}"
+        )
         _deviceContacts.update { current ->
             current.map { existing ->
-                val updated = contacts.find { it.id == existing.id }
+                val updated = contacts.find { it.token == existing.token }
                 if (updated != null && existing.status != updated.status) {
                     existing.copy(status = updated.status)
                 } else {
@@ -215,33 +232,36 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
     // ================================= Normal mode ============================================
 
+    /**
+     * Load both in parallel with async/await to ensure proper deduplication and performance.
+     * Filter after both lists are ready.
+     * token collision is only a problem when one list is missing during filtering.
+     * TODO: what's the behavior when two different contacts name have the same token?
+     */
     fun loadAllContacts() {
         _shouldScrollToTop.value = true
-        loadServiceContacts()
-        loadDeviceContacts()
-    }
-
-    fun loadServiceContacts() {
         viewModelScope.launch {
-            val serviceContacts = withContext(Dispatchers.IO) {
+            val serviceDeferred = async(Dispatchers.IO) {
                 repository.fetchServiceContacts()
             }
 
-            // TODO: check if there is a chance to have more than 6 recent contacts and do i need to sort by name as well
-            val recent = serviceContacts.filter { it.level != null }.sortedBy { it.level }
-            val my = serviceContacts.filter { it.level == null }.sortedBy { it.name }
-
-            _serverRecentContacts.value = recent
-            _serverMyContacts.value = my
-        }
-    }
-
-    fun loadDeviceContacts() {
-        viewModelScope.launch {
-            val deviceContacts = withContext(Dispatchers.IO) {
+            val deviceDeferred = async(Dispatchers.IO) {
                 repository.fetchAllDeviceContacts(tokenThumbnailMap)
             }
-            _deviceContacts.value = deviceContacts
+
+            val serviceContacts = serviceDeferred.await()
+            val deviceContacts = deviceDeferred.await()
+
+            val recent = serviceContacts.filter { it.level != null }.sortedBy { it.level }
+            val my = serviceContacts.filter { it.level == null }.sortedBy { it.name }
+            _serverRecentContacts.value = recent
+            _serverMyContacts.value = my
+
+            // remove duplicates within device contacts and remove duplicates against service contacts
+            val serviceTokens = (recent + my).map { it.token }.toSet()
+            val filteredDeviceContacts = deviceContacts.distinctBy { it.token }.filter { it.token !in serviceTokens }
+            _deviceContacts.value = filteredDeviceContacts
+
             checkVisibleStatus()
         }
     }
