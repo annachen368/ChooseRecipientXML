@@ -15,10 +15,13 @@ class ContactDetailActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // Retrieve the contact passed via intent
-        val contact = intent.getSerializableExtra("CONTACT") as? Contact
+        val contact = intent.getSerializableExtra("contact") as? Contact
         contact?.let {
             binding.contactName.text = it.name
             binding.contactNumber.text = it.token
+            binding.contactSource.text = it.source?.name
+            binding.contactStatus.text = it.status
+            binding.contactPhoto.text = it.thumbnail
             // Populate other contact details as needed
         }
     }
