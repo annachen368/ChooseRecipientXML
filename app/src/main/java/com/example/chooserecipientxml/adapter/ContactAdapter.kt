@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.constraintlayout.motion.widget.MotionScene.Transition.TransitionOnClick
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -15,7 +16,7 @@ import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.ui.ContactDetailActivity
 import com.example.chooserecipientxml.viewmodel.ContactListItem
 
-class ContactAdapter(private val context: Context, private val tokenThumbnailMap: Map<String, String>) :
+class ContactAdapter(private val tokenThumbnailMap: Map<String, String>, private val onContactClick: (Contact) -> Unit) :
     ListAdapter<ContactListItem, RecyclerView.ViewHolder>(ContactListItemDiffCallback()) {
 
     companion object {
@@ -77,9 +78,7 @@ class ContactAdapter(private val context: Context, private val tokenThumbnailMap
                 .into(binding.contactImage)
 
             binding.root.setOnClickListener {
-//                val intent = Intent(context, ContactDetailActivity::class.java)
-//                intent.putExtra("contact_id", contact.id)
-//                context.startActivity(intent)
+                onContactClick(contact)
             }
         }
     }

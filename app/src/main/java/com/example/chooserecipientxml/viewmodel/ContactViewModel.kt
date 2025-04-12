@@ -10,7 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -57,6 +60,9 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
     private val _shouldScrollToTop = MutableStateFlow(false)
     val shouldScrollToTop: StateFlow<Boolean> = _shouldScrollToTop
     val tokenThumbnailMap = mutableMapOf<String, String>()
+    private val _navigateToDetailEvent = MutableSharedFlow<Contact>(replay = 0)
+    val navigateToDetailEvent: SharedFlow<Contact> = _navigateToDetailEvent
+    private var isProcessingClick = false
 
     // Search mode
     private var _searchServerContacts = listOf<Contact>()
@@ -338,6 +344,35 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
     fun showGridScreen() {
         _isListScreenVisible.value = false
+    }
+
+    fun onContactClicked(contact: Contact) {
+        if (isProcessingClick) {
+            Log.d("ThreadCheck", "⚠️ Click ignored, already processing another contact")
+            return
+        }
+
+        isProcessingClick = true
+
+        viewModelScope.launch {
+            // Handle contact click event
+            Log.d("ThreadCheck", "Contact clicked: ${contact.name}")
+            if (searchStatusMutex.isLocked) {
+                Log.d("ThreadCheck", "🔒 searchStatusMutex is locked, waiting...")
+                searchStatusMutex.withLock {
+                    // do nothing, just wait for the lock to be released
+                }
+                Log.d("ThreadCheck", "🔒 searchStatusMutex is unlocked")
+            }
+
+            emitNavigationEvent(contact)
+            isProcessingClick = false
+        }
+    }
+
+    suspend fun emitNavigationEvent(contact: Contact) {
+        Log.d("ThreadCheck", "emitNavigationEvent: ${contact.name}")
+        _navigateToDetailEvent.emit(contact)
     }
 }
 

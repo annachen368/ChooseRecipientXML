@@ -1,5 +1,6 @@
 package com.example.chooserecipientxml.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -15,6 +16,7 @@ import com.bumptech.glide.Glide
 import com.example.chooserecipientxml.adapter.ContactAdapter
 import com.example.chooserecipientxml.databinding.ActivityContactsBinding
 import com.example.chooserecipientxml.databinding.ItemContactGridBinding
+import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.network.ApiService
 import com.example.chooserecipientxml.repository.ContactRepository
 import com.example.chooserecipientxml.viewmodel.ContactListItem
@@ -45,7 +47,9 @@ class ContactsActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(this, factory)[ContactViewModel::class.java]
 
-        adapter = ContactAdapter(context = this, viewModel.tokenThumbnailMap)
+        adapter = ContactAdapter(viewModel.tokenThumbnailMap) {
+            viewModel.onContactClicked(it)
+        }
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.recyclerView.itemAnimator = null
@@ -171,6 +175,12 @@ class ContactsActivity : AppCompatActivity() {
                 }
 
                 launch {
+                    viewModel.navigateToDetailEvent.collect { contact ->
+                        goToContactDetailScreen(contact) // your custom navigation function
+                    }
+                }
+
+                launch {
                     viewModel.isListScreenVisible.collect { isListVisible ->
                         if (isListVisible) {
                             binding.gridViewContainer.visibility = View.GONE
@@ -183,6 +193,21 @@ class ContactsActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private var hasNavigatedToDetail = false
+    private fun goToContactDetailScreen(contact: Contact) {
+        if (hasNavigatedToDetail) return
+
+        hasNavigatedToDetail = true
+        val intent = Intent(this, ContactDetailActivity::class.java)
+        intent.putExtra("contact", contact)
+        startActivity(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hasNavigatedToDetail = false // allow navigating again when returning
     }
 
     private fun setupSearchView() {
