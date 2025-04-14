@@ -140,6 +140,10 @@ class ContactListItemDiffCallback : DiffUtil.ItemCallback<ContactListItem>() {
                 // TODO: check if oldItem.contact.id == newItem.contact.id can be used // Use a unique id
 //                oldItem.contact.id == newItem.contact.id // to avoid scrolling to top after update contact status
                 oldItem.contact.token == newItem.contact.token
+
+            oldItem is ContactListItem.InviteEntry && newItem is ContactListItem.InviteEntry ->
+                oldItem.query == newItem.query
+
             oldItem is ContactListItem.Disclosure && newItem is ContactListItem.Disclosure ->
                 true // Only one disclosure, treat as same
             else -> false
