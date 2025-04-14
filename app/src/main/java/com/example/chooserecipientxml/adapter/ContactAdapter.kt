@@ -2,6 +2,8 @@ package com.example.chooserecipientxml.adapter
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.constraintlayout.motion.widget.MotionScene.Transition.TransitionOnClick
@@ -12,6 +14,7 @@ import com.bumptech.glide.Glide
 import com.example.chooserecipientxml.databinding.ItemContactBinding
 import com.example.chooserecipientxml.databinding.ItemDisclosureBinding
 import com.example.chooserecipientxml.databinding.ItemHeaderBinding
+import com.example.chooserecipientxml.databinding.ItemInviteEntryBinding
 import com.example.chooserecipientxml.model.Contact
 import com.example.chooserecipientxml.ui.ContactDetailActivity
 import com.example.chooserecipientxml.viewmodel.ContactListItem
@@ -23,6 +26,7 @@ class ContactAdapter(private val tokenThumbnailMap: Map<String, String>, private
         private const val VIEW_TYPE_HEADER = 0
         private const val VIEW_TYPE_CONTACT = 1
         private const val VIEW_TYPE_DISCLOSURE = 2
+        private const val VIEW_TYPE_INVITE_ENTRY = 3
     }
 
     override fun getItemViewType(position: Int): Int {
@@ -30,6 +34,7 @@ class ContactAdapter(private val tokenThumbnailMap: Map<String, String>, private
             is ContactListItem.Header -> VIEW_TYPE_HEADER
             is ContactListItem.ContactItem -> VIEW_TYPE_CONTACT
             is ContactListItem.Disclosure -> VIEW_TYPE_DISCLOSURE
+            is ContactListItem.InviteEntry -> VIEW_TYPE_INVITE_ENTRY
         }
     }
 
@@ -44,6 +49,10 @@ class ContactAdapter(private val tokenThumbnailMap: Map<String, String>, private
                 val binding = ItemContactBinding.inflate(inflater, parent, false)
                 ContactViewHolder(binding)
             }
+            VIEW_TYPE_INVITE_ENTRY -> {
+                val binding = ItemInviteEntryBinding.inflate(inflater, parent, false)
+                InviteEntryViewHolder(binding)
+            }
             VIEW_TYPE_DISCLOSURE -> {
                 val binding = ItemDisclosureBinding.inflate(inflater, parent, false)
                 DisclosureViewHolder(binding)
@@ -56,6 +65,7 @@ class ContactAdapter(private val tokenThumbnailMap: Map<String, String>, private
         when (val item = getItem(position)) {
             is ContactListItem.Header -> (holder as HeaderViewHolder).bind(item)
             is ContactListItem.ContactItem -> (holder as ContactViewHolder).bind(item.contact)
+            is ContactListItem.InviteEntry -> (holder as InviteEntryViewHolder).bind(item.query)
             is ContactListItem.Disclosure -> {} // No binding needed
         }
     }
@@ -92,6 +102,33 @@ class ContactAdapter(private val tokenThumbnailMap: Map<String, String>, private
 
     inner class DisclosureViewHolder(binding: ItemDisclosureBinding) :
         RecyclerView.ViewHolder(binding.root)
+
+    inner class InviteEntryViewHolder(private val binding: ItemInviteEntryBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+
+        fun bind(query: String) {
+            binding.inviteText.text = "Invite \"$query\""
+
+            val isValid = isValidEmail(query) || isValidPhone(query)
+            binding.inviteEntry.isEnabled = isValid
+            binding.inviteText.setTextColor(
+                if (isValid) Color.BLUE else Color.GRAY
+            )
+
+            binding.inviteEntry.setOnClickListener {
+                if (isValid) {
+                    // Your click handler here
+                    Log.d("InviteEntry", "Clicked: $query")
+                }
+            }
+        }
+
+        private fun isValidEmail(input: String): Boolean =
+            android.util.Patterns.EMAIL_ADDRESS.matcher(input).matches()
+
+        private fun isValidPhone(input: String): Boolean =
+            android.util.Patterns.PHONE.matcher(input).matches()
+    }
 }
 
 class ContactListItemDiffCallback : DiffUtil.ItemCallback<ContactListItem>() {

@@ -155,8 +155,11 @@ class ContactViewModel(private val repository: ContactRepository) : ViewModel() 
 
         val matched = (_searchServerContacts + _searchDeviceContacts).sortedBy { it.name }
 
-        val results =
-            matched.map { ContactListItem.ContactItem(it.copy()) } + ContactListItem.Disclosure
+        val results = if (matched.isEmpty()) {
+            listOf(ContactListItem.InviteEntry(query)) // 👈 new item
+        } else {
+            matched.map { ContactListItem.ContactItem(it.copy()) }
+        } + ContactListItem.Disclosure
         _searchResults.value = results
     }
 
